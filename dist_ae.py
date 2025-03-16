@@ -135,7 +135,7 @@ def train_dist_ae(dist_ae, optimizer, train_loader, n_epochs = 100, device = 'cp
     return dist_ae
 
 def train_w_stop(dist_ae, optimizer, train_loader, val_loader, max_epochs=100,
-                   device='cuda', patience=5):
+                   device='cuda', patience=5, verbose=True):
     dist_ae.to(device)
     best_val_loss = float('inf')
     patience_counter = 0
@@ -160,7 +160,8 @@ def train_w_stop(dist_ae, optimizer, train_loader, val_loader, max_epochs=100,
                 val_loss += dist_ae.loss(batch.to(device)).item()
         
         val_loss /= len(val_loader)
-        print(f"Epoch {epoch+1} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")
+        if verbose:
+            print(f"Epoch {epoch+1} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")
         
         if val_loss < best_val_loss:
             best_val_loss = val_loss
@@ -168,7 +169,8 @@ def train_w_stop(dist_ae, optimizer, train_loader, val_loader, max_epochs=100,
         else:
             patience_counter += 1
             if patience_counter >= patience:
-                print("Early stopping triggered! 🛑")
+                if verbose:
+                    print("Early stopping triggered! 🛑")
                 break
     
     return dist_ae
