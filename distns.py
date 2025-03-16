@@ -24,9 +24,9 @@ def fr_dist_normal(params):
 
 def sample_poisson(rate, n_sets, set_size, n_features):
     if rate.ndim == 1:
-        return np.random.poisson(1, (n_sets, set_size, n_features)) * rate[None, None, :]
+        return np.random.poisson(rate[None, None, :], (n_sets, set_size, n_features))
     elif rate.ndim == 2:
-        return np.random.poisson(1, (n_sets, set_size, n_features)) * rate[:, None, :]
+        return np.random.poisson(rate[:, None, :], (n_sets, set_size, n_features))
     else:
         raise ValueError("rate must have the same number of dimensions as n_features")
 # generate poisson data
