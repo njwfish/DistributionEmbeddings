@@ -119,7 +119,7 @@ def train_dist_ae(
     
     return dist_ae
 
-def train_w_stop(dist_ae, optimizer, train_loader, val_loader, max_epochs=100,
+def train_w_stop(dist_ae, optimizer, train_loader, val_loader, loss_fn, max_epochs=100,
                    device='cuda', patience=5, verbose=True):
     dist_ae.to(device)
     best_val_loss = float('inf')
@@ -131,7 +131,8 @@ def train_w_stop(dist_ae, optimizer, train_loader, val_loader, max_epochs=100,
         
         for batch in train_loader:
             optimizer.zero_grad()
-            loss = dist_ae.loss(batch.to(device))
+            _, rec = dist_ae(batch.to(device))
+            loss = loss_fn(rec, batch.to(device))
             loss.backward()
             optimizer.step()
             train_loss += loss.item()
@@ -142,7 +143,8 @@ def train_w_stop(dist_ae, optimizer, train_loader, val_loader, max_epochs=100,
         val_loss = 0
         with torch.no_grad():
             for batch in val_loader:
-                val_loss += dist_ae.loss(batch.to(device)).item()
+                _, rec = dist_ae(batch.to(device))
+                val_loss += loss_fn(rec, batch.to(device))
         
         val_loss /= len(val_loader)
         if verbose:
