@@ -2,38 +2,25 @@ import torch
 import torch.nn as nn
 import torch.autograd as autograd
 
+from layers import MLP, MeanPooledFC
+
 class ConditionalWGANDiscriminator(nn.Module):
-    def __init__(self, in_dim, cond_dim, hidden_dim, out_dim=1):
+    def __init__(self, in_dim, cond_dim, hidden_dim, out_dim=1, fc_layers=2, layers=2):
         super(ConditionalWGANDiscriminator, self).__init__()
-        # Process the input data
-        self.data_layer = nn.Sequential(
-            nn.Linear(in_dim, hidden_dim),
-            nn.SELU()
-        )
-        
-        # Process the condition
-        self.cond_layer = nn.Sequential(
-            nn.Linear(cond_dim, hidden_dim),
-            nn.SELU()
-        )
         
         # Combined processing
-        self.combined_layer = nn.Sequential(
-            nn.Linear(hidden_dim * 2, hidden_dim),
-            nn.SELU(),
-            nn.Linear(hidden_dim, out_dim)
+        self.gnn = nn.Sequential(
+            MLP(in_dim + cond_dim, hidden_dim, hidden_dim, fc_layers),
+            *[MeanPooledFC(hidden_dim, hidden_dim, hidden_dim, fc_layers) for _ in range(layers)],
+            MLP(hidden_dim, hidden_dim, out_dim, fc_layers)
         )
 
     def forward(self, x, condition):
         # Process data and condition separately
-        data_features = self.data_layer(x)
-        cond_features = self.cond_layer(condition)
-        
-        # Concatenate features along the last dimension
-        combined = torch.cat([data_features, cond_features], dim=-1)
+        combined = torch.cat([x, condition], dim=-1)
         
         # Process combined features
-        return self.combined_layer(combined)
+        return self.gnn(combined)
 
 def compute_gradient_penalty(discriminator, real_samples, fake_samples, condition, device):
     """
@@ -67,8 +54,8 @@ def compute_gradient_penalty(discriminator, real_samples, fake_samples, conditio
     )[0]
     
     # Calculate gradient penalty
-    gradients = gradients.view(gradients.size(0), -1)
-    gradient_norm = gradients.norm(2, dim=1)
+    # gradients = gradients.view(gradients.size(0), -1)
+    gradient_norm = gradients.norm(2, dim=-1)
     gradient_penalty = ((gradient_norm - 1) ** 2).mean()
     
     return gradient_penalty
@@ -111,7 +98,7 @@ def wgan_generator_loss(discriminator, fake_samples, condition):
 
 def train_wgan(
         model, discriminator, optimizer, discriminator_optimizer, train_loader, 
-        n_epochs=100, n_critic=5, lambda_gp=10, device='cuda'
+        n_epochs=100, n_critic=5, lambda_gp=1, device='cuda'
 ):
     """
     Train the conditional WGAN-GP model
@@ -132,11 +119,6 @@ def train_wgan(
     model.train()
     discriminator.train()
     
-    # For tracking progress
-    losses = {
-        'd_loss': [], 'wasserstein_loss': [], 'gp_loss': [], 'g_loss': []
-    }
-    
     for epoch in range(n_epochs):
         total_d_loss = 0
         total_wasserstein_loss = 0
@@ -145,59 +127,54 @@ def train_wgan(
         d_steps = 0
         g_steps = 0
         
-        for batch_data in train_loader:
+        for i, batch_data in enumerate(train_loader):
             # Move data to device
             data = batch_data.to(device)
             
             # Train discriminator
-            for _ in range(n_critic):
-                discriminator_optimizer.zero_grad()
+            
+            discriminator_optimizer.zero_grad()
+            
+            # Generate fake samples using the condition
+            with torch.no_grad():
+                latent, fake_samples = model(data)
+                # Ensure latent has the right shape for conditioning
+                latent = latent.unsqueeze(1).repeat(1, data.shape[1], 1)
+            
+            # Calculate discriminator loss with gradient penalty
+            d_loss, wasserstein_loss, gp_loss = wgan_discriminator_loss(
+                discriminator, data, fake_samples, latent, device, lambda_gp
+            )
+            d_loss.backward()
+            discriminator_optimizer.step()
+            
+            total_d_loss += d_loss.item()
+            total_wasserstein_loss += wasserstein_loss
+            total_gp_loss += gp_loss
+            d_steps += 1
+
+            if i % n_critic == 0:
+                # Train generator
+                optimizer.zero_grad()
                 
-                # Generate fake samples using the condition
-                with torch.no_grad():
-                    latent, fake_samples = model(data)
-                    # Ensure latent has the right shape for conditioning
-                    latent = latent.unsqueeze(1).repeat(1, data.shape[1], 1)
+                # Generate fake samples
+                latent, fake_samples = model(data)
+                # Ensure latent has the right shape for conditioning
+                latent = latent.unsqueeze(1).repeat(1, data.shape[1], 1)
                 
-                # Calculate discriminator loss with gradient penalty
-                d_loss, wasserstein_loss, gp_loss = wgan_discriminator_loss(
-                    discriminator, data, fake_samples, latent, device, lambda_gp
-                )
-                d_loss.backward()
-                discriminator_optimizer.step()
+                # Calculate generator loss
+                g_loss = wgan_generator_loss(discriminator, fake_samples, latent)
+                g_loss.backward()
+                optimizer.step()
                 
-                total_d_loss += d_loss.item()
-                total_wasserstein_loss += wasserstein_loss
-                total_gp_loss += gp_loss
-                d_steps += 1
-            
-            # Train generator
-            optimizer.zero_grad()
-            
-            # Generate fake samples
-            latent, fake_samples = model(data)
-            # Ensure latent has the right shape for conditioning
-            latent = latent.unsqueeze(1).repeat(1, data.shape[1], 1)
-            
-            # Calculate generator loss
-            g_loss = wgan_generator_loss(discriminator, fake_samples, latent)
-            g_loss.backward()
-            optimizer.step()
-            
-            total_g_loss += g_loss.item()
-            g_steps += 1
+                total_g_loss += g_loss.item()
+                g_steps += 1
         
         # Calculate average losses for this epoch
         avg_d_loss = total_d_loss / d_steps if d_steps > 0 else 0
         avg_wasserstein_loss = total_wasserstein_loss / d_steps if d_steps > 0 else 0
         avg_gp_loss = total_gp_loss / d_steps if d_steps > 0 else 0
         avg_g_loss = total_g_loss / g_steps if g_steps > 0 else 0
-        
-        # Store losses for tracking
-        losses['d_loss'].append(avg_d_loss)
-        losses['wasserstein_loss'].append(avg_wasserstein_loss)
-        losses['gp_loss'].append(avg_gp_loss)
-        losses['g_loss'].append(avg_g_loss)
         
         # Print progress
         if epoch % 10 == 0 or epoch == n_epochs - 1:
@@ -207,4 +184,4 @@ def train_wgan(
             print(f"    - Gradient Penalty: {avg_gp_loss:.4f}")
             print(f"  Generator Loss: {avg_g_loss:.4f}")
 
-    return model, discriminator, losses
+    return model, discriminator
