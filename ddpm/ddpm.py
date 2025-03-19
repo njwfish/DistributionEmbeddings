@@ -300,6 +300,36 @@ class DDPM(nn.Module):
         return x_i, x_i_store
 
 
+# Load the trained models
+def load_trained_models(model_path, ep=None, device='cuda'):
+    # Define hyperparameters
+    n_T = 400
+    n_classes = 16
+    n_feat = 256
+    
+    # Initialize the models
+    # Context UNet for the DDPM model
+    context_unet = ContextUnet(in_channels=1, n_feat=n_feat, n_classes=n_classes)
+    
+    # ImageSetGNN model
+    distn_ae = ImageSetGNN(
+        in_channels=1, hidden_channels=32, out_channels=32, hidden_dim=64, latent_dim=16,
+        num_layers=2, kernel_size=3, pool_type='mean', agg_type='mean'
+    )
+    
+    # DDPM model that uses the context UNet
+    ddpm = DDPM(nn_model=context_unet, betas=(1e-4, 0.02), n_T=n_T, device=device, drop_prob=0.1)
+    
+    # Load the saved model weights
+    if ep is None:
+        import os
+        # get the latest epoch
+        ep = max(int(f.split('_')[1].split('.')[0]) for f in os.listdir(model_path) if f.startswith('model_'))
+    ddpm.load_state_dict(torch.load(model_path + f"model_{ep}.pth"))
+    distn_ae.load_state_dict(torch.load(model_path + f"distn_ae_{ep}.pth"))
+    
+    return ddpm, distn_ae
+
 def train_mnist():
 
     # hardcoding these here
@@ -308,10 +338,9 @@ def train_mnist():
     device = "cuda"
     n_classes = 16
     n_feat = 256 # 128 ok, 256 better (but slower)
-    lrate = 2e-4
+    lrate = 1e-4
     save_model = True
     save_dir = './data/diffusion_outputs10/'
-    ws_test = [0.0, 0.5, 2.0] # strength of generative guidance
 
     ddpm = DDPM(nn_model=ContextUnet(in_channels=1, n_feat=n_feat, n_classes=n_classes), betas=(1e-4, 0.02), n_T=n_T, device=device, drop_prob=0.1)
     ddpm.to(device)
@@ -323,6 +352,9 @@ def train_mnist():
     distn_ae.to(device)
     # optionally load a model
     # ddpm.load_state_dict(torch.load("./data/diffusion_outputs/ddpm_unet01_mnist_9.pth"))
+    ddpm, distn_ae = load_trained_models('./data/diffusion_outputs10/', 17)
+    ddpm = ddpm.to(device)
+    distn_ae = distn_ae.to(device)
 
     # tf = transforms.Compose([transforms.ToTensor()]) # mnist is already normalised 0 to 1
 
@@ -370,7 +402,7 @@ def train_mnist():
     )
 
     # pbar = tqdm(range(n_epoch))
-    for ep in range(n_epoch):
+    for ep in range(18, n_epoch):
         ddpm.train()
         print(f'epoch {ep}')
 
