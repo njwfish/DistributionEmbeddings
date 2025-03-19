@@ -99,6 +99,11 @@ class ImageSetGNN(nn.Module):
         
         # Final projection to output channels
         self.final_conv = nn.Conv2d(hidden_channels, self.out_channels, kernel_size=1)
+        self.pre_pool_mlp = nn.Sequential(
+            nn.Linear(28 * 28, hidden_dim),
+            nn.GELU(),
+            nn.Linear(hidden_dim, self.out_channels)
+        )
         self.final_mlp = nn.Sequential(
             nn.Linear(self.out_channels, hidden_dim),
             nn.GELU(),
@@ -133,14 +138,15 @@ class ImageSetGNN(nn.Module):
         x_final = self.final_conv(x_flat)
         x_final = x_final.view(batch_size, set_size, self.out_channels, h_out, w_out)
 
-        pooled = torch.max(x_final, dim=-1).values
-        pooled = torch.max(pooled, dim=-1).values
-        
+        x_final = x_final.view(batch_size, set_size, self.out_channels, h_out * w_out)
+        x_final = self.pre_pool_mlp(x_final)
+        x_final = torch.max(x_final, dim=2)[0]
+
         # Pool across the set dimension to get a single representation per batch
         if self.pool_type == 'mean':
-            pooled = torch.mean(pooled, dim=1)
+            pooled = torch.mean(x_final, dim=1)
         elif self.pool_type == 'median':
-            pooled = torch.median(pooled, dim=1)[0]
+            pooled = torch.median(x_final, dim=1)[0]
         else:
             raise ValueError(f"Unknown pooling type: {self.pool_type}")
         
