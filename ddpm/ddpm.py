@@ -305,7 +305,7 @@ def train_mnist():
     # hardcoding these here
     n_epoch = 20
     n_T = 400 # 500
-    device = "mps"
+    device = "cuda"
     n_classes = 10
     n_feat = 128 # 128 ok, 256 better (but slower)
     lrate = 1e-4
@@ -355,11 +355,11 @@ def train_mnist():
         
         return torch.stack(sets).float(), metadata
 
-    N_sets = 3_000
+    N_sets = 10_000
     set_size = 100
     mnist_sets, _ = sample_mnist_mixed_sets(N_sets, set_size)
     dataloader = torch.utils.data.DataLoader(
-        mnist_sets, batch_size=16, shuffle=True
+        mnist_sets, batch_size=32, shuffle=True
     )
 
     mnist_sets, _ = sample_mnist_mixed_sets(N_sets, set_size)
