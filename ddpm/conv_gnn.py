@@ -140,7 +140,7 @@ class ImageSetGNN(nn.Module):
 
         x_final = x_final.view(batch_size, set_size, self.out_channels, h_out * w_out)
         x_final = self.pre_pool_mlp(x_final)
-        x_final = torch.max(x_final, dim=2)[0]
+        x_final = torch.mean(x_final, dim=2)
 
         # Pool across the set dimension to get a single representation per batch
         if self.pool_type == 'mean':

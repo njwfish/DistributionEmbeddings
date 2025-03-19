@@ -303,12 +303,12 @@ class DDPM(nn.Module):
 def train_mnist():
 
     # hardcoding these here
-    n_epoch = 20
+    n_epoch = 50
     n_T = 400 # 500
     device = "cuda"
-    n_classes = 10
-    n_feat = 128 # 128 ok, 256 better (but slower)
-    lrate = 1e-4
+    n_classes = 16
+    n_feat = 256 # 128 ok, 256 better (but slower)
+    lrate = 2e-4
     save_model = True
     save_dir = './data/diffusion_outputs10/'
     ws_test = [0.0, 0.5, 2.0] # strength of generative guidance
@@ -317,7 +317,7 @@ def train_mnist():
     ddpm.to(device)
 
     distn_ae = ImageSetGNN(
-        in_channels=1, hidden_channels=32, out_channels=32, hidden_dim=64, latent_dim=10,
+        in_channels=1, hidden_channels=32, out_channels=32, hidden_dim=64, latent_dim=n_classes,
         num_layers=2, kernel_size=3, pool_type='mean', agg_type='mean'
     )
     distn_ae.to(device)
@@ -359,12 +359,8 @@ def train_mnist():
     set_size = 100
     mnist_sets, _ = sample_mnist_mixed_sets(N_sets, set_size)
     dataloader = torch.utils.data.DataLoader(
-        mnist_sets, batch_size=32, shuffle=True
+        mnist_sets, batch_size=24, shuffle=True
     )
-
-    mnist_sets, _ = sample_mnist_mixed_sets(N_sets, set_size)
-    val_loader = torch.utils.data.DataLoader(mnist_sets, batch_size=32, shuffle=False)
-
 
     optim = torch.optim.Adam(
         [
@@ -402,47 +398,6 @@ def train_mnist():
             pbar.set_description(f"loss: {loss_ema:.4f}")
             optim.step()
         
-        # for eval, save an image of currently generated samples (top rows)
-        # followed by real images (bottom rows)
-        if False:
-            ddpm.eval()
-            with torch.no_grad():
-                n_sample = 4*n_classes
-                for w_i, w in enumerate(ws_test):
-                    x_gen, x_gen_store = ddpm.sample(n_sample, (1, 28, 28), device, guide_w=w)
-
-                    # append some real images at bottom, order by class also
-                    x_real = torch.Tensor(x_gen.shape).to(device)
-                    for k in range(n_classes):
-                        for j in range(int(n_sample/n_classes)):
-                            try: 
-                                idx = torch.squeeze((c == k).nonzero())[j]
-                            except:
-                                idx = 0
-                            x_real[k+(j*n_classes)] = x[idx]
-
-                    x_all = torch.cat([x_gen, x_real])
-                    grid = make_grid(x_all*-1 + 1, nrow=10)
-                    save_image(grid, save_dir + f"image_ep{ep}_w{w}.png")
-                    print('saved image at ' + save_dir + f"image_ep{ep}_w{w}.png")
-
-                    if ep%5==0 or ep == int(n_epoch-1):
-                        # create gif of images evolving over time, based on x_gen_store
-                        fig, axs = plt.subplots(nrows=int(n_sample/n_classes), ncols=n_classes,sharex=True,sharey=True,figsize=(8,3))
-                        def animate_diff(i, x_gen_store):
-                            print(f'gif animating frame {i} of {x_gen_store.shape[0]}', end='\r')
-                            plots = []
-                            for row in range(int(n_sample/n_classes)):
-                                for col in range(n_classes):
-                                    axs[row, col].clear()
-                                    axs[row, col].set_xticks([])
-                                    axs[row, col].set_yticks([])
-                                    # plots.append(axs[row, col].imshow(x_gen_store[i,(row*n_classes)+col,0],cmap='gray'))
-                                    plots.append(axs[row, col].imshow(-x_gen_store[i,(row*n_classes)+col,0],cmap='gray',vmin=(-x_gen_store[i]).min(), vmax=(-x_gen_store[i]).max()))
-                            return plots
-                        ani = FuncAnimation(fig, animate_diff, fargs=[x_gen_store],  interval=200, blit=False, repeat=True, frames=x_gen_store.shape[0])    
-                        ani.save(save_dir + f"gif_ep{ep}_w{w}.gif", dpi=100, writer=PillowWriter(fps=5))
-                        print('saved image at ' + save_dir + f"gif_ep{ep}_w{w}.gif")
         # optionally save model
         if save_model: # and (ep == int(n_epoch-1) or (ep % 2 == 0)):
             torch.save(ddpm.state_dict(), save_dir + f"model_{ep}.pth")
