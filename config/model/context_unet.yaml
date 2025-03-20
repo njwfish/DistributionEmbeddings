@@ -1,0 +1,4 @@
+_target_: generator.ddpm.ContextUnet
+in_channels: 1
+n_feat: 256
+n_classes: ${experiment.latent_dim} 

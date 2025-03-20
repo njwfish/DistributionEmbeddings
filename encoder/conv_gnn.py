@@ -74,13 +74,13 @@ class ConvGNNLayer(nn.Module):
         return updated
 
 
-class ImageSetGNN(nn.Module):
+class ConvDistributionEncoder(nn.Module):
     """
     Graph Neural Network for processing sets of images.
     """
     def __init__(self, in_channels, hidden_channels, out_channels, hidden_dim, latent_dim, 
                 num_layers=2, kernel_size=3, height=28, width=28, pool_type='mean', agg_type='mean'):
-        super(ImageSetGNN, self).__init__()
+        super(ConvDistributionEncoder, self).__init__()
         
         self.pool_type = pool_type
         self.out_channels = out_channels  # Store out_channels as class variable

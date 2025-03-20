@@ -1,0 +1,9 @@
+_target_: wandb_utils.setup_wandb
+project: "distribution-embeddings"
+entity: null  # Change to your team name if needed
+name: null  # Will be auto-generated from config if null
+mode: "online"  # Options: online, offline, disabled
+tags: []
+notes: null
+group: null
+save_code: true 

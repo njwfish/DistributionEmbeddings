@@ -1,0 +1,7 @@
+_target_: generator.direct.DirectGenerator
+model: ${model}  # This will be instantiated first
+loss_type: swd
+loss_params:
+  n_projections: 100
+  p: 2
+noise_dim: ${experiment.noise_dim} 

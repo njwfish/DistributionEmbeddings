@@ -37,3 +37,13 @@ class MedianPooledFC(nn.Module):
         pooled_rep = torch.median(x, dim=1).values
         x = torch.cat([x, pooled_rep.unsqueeze(1).repeat(1, x.shape[1], 1)], dim=2)
         return self.fc(x)
+    
+class SelfAttention(nn.Module):
+    def __init__(self, dim, heads=4):
+        super().__init__()
+        self.attn = nn.MultiheadAttention(dim, heads, batch_first=True)
+        self.norm = nn.LayerNorm(dim)
+
+    def forward(self, x):
+        out, _ = self.attn(x, x, x)
+        return self.norm(x + out)

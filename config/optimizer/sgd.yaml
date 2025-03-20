@@ -1,0 +1,6 @@
+_target_: torch.optim.SGD
+_partial_: true
+lr: ${experiment.lr}
+momentum: 0.9
+weight_decay: 0
+nesterov: false 

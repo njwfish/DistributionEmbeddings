@@ -1,0 +1,24 @@
+_target_: torch.nn.Sequential
+_args_:
+  # First layer
+  - _target_: torch.nn.Linear
+    in_features: ${sum:${experiment.latent_dim},${experiment.noise_dim}}
+    out_features: ${experiment.hidden_dim}
+  - _target_: torch.nn.SELU
+  
+  # Second layer
+  - _target_: torch.nn.Linear
+    in_features: ${experiment.hidden_dim}
+    out_features: ${experiment.hidden_dim}
+  - _target_: torch.nn.SELU
+  
+  # Third layer
+  - _target_: torch.nn.Linear
+    in_features: ${experiment.hidden_dim}
+    out_features: ${experiment.hidden_dim}
+  - _target_: torch.nn.SELU
+  
+  # Output layer
+  - _target_: torch.nn.Linear
+    in_features: ${experiment.hidden_dim}
+    out_features: ${dataset.n_features} 

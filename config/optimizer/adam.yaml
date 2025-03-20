@@ -1,0 +1,6 @@
+_target_: torch.optim.Adam
+_partial_: true  # Important: makes this a partial instantiation until parameters are provided
+lr: ${experiment.lr}
+betas: [0.9, 0.999]
+eps: 1e-08
+weight_decay: 0 

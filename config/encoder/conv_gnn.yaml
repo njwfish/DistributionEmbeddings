@@ -1,0 +1,12 @@
+_target_: encoder.conv_gnn.ConvDistributionEncoder
+in_channels: 1  # For MNIST
+hidden_channels: 32
+out_channels: 32
+hidden_dim: ${experiment.hidden_dim}
+latent_dim: ${experiment.latent_dim}
+num_layers: 2
+kernel_size: 3
+height: 28  # MNIST image height
+width: 28  # MNIST image width
+pool_type: mean
+agg_type: mean 

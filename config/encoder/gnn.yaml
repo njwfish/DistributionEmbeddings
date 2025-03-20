@@ -1,0 +1,7 @@
+_target_: encoder.encoders.DistributionEncoderGNN
+in_dim: ${dataset.n_features}
+latent_dim: ${experiment.latent_dim}
+hidden_dim: ${experiment.hidden_dim}
+set_size: ${experiment.set_size}
+layers: 2
+fc_layers: 2 

@@ -1,0 +1,5 @@
+_target_: generator.ddpm.DDPM
+model: ${model}  # This will be instantiated first
+betas: [1e-4, 0.02]
+n_T: 400
+drop_prob: 0.1 
