@@ -52,7 +52,7 @@ def hash_config(config: Union[Dict[str, Any], DictConfig], include_keys: list = 
     
     # Generate hash
     hash_obj = hashlib.md5(sorted_dict.encode())
-    config_hash = hash_obj.hexdigest()[:10]  # Use first 10 chars for readability
+    config_hash = hash_obj.hexdigest() 
     
     return config_hash
 

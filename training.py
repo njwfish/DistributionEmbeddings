@@ -97,7 +97,7 @@ class Trainer:
         # Resume from checkpoint if found
         if last_checkpoint is not None and os.path.exists(last_checkpoint):
             self.logger.info(f"Resuming from checkpoint: {last_checkpoint}")
-            checkpoint = torch.load(last_checkpoint)
+            checkpoint = torch.load(last_checkpoint, weights_only=False)
             encoder.load_state_dict(checkpoint['encoder_state_dict'])
             generator.model.load_state_dict(checkpoint['generator_state_dict'])
             optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
