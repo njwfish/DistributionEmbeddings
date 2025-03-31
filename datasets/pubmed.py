@@ -382,6 +382,6 @@ class PubMedDataset(Dataset):
                 'gpt2_input_ids': item["gpt2_input_ids"],
                 'gpt2_attention_mask': item["gpt2_attention_mask"]
             },
-            'raw_texts': [item["raw_texts"]],
-            'pmids': [item.get("pmids", [])]
+            'raw_texts': item["raw_texts"],
+            'pmids': item.get("pmids", [])
         } 

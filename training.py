@@ -139,10 +139,6 @@ class Trainer:
                             samples[key] = value.to(device)
                         else:
                             samples[key] = value
-                    
-                    print("bert_shape", samples["bert_input_ids"].shape, "gpt2_shape", samples["gpt2_input_ids"].shape)
-                    print("len raw_texts", len(batch["raw_texts"]), "len raw_texts[0]", len(batch["raw_texts"][0]))
-
 
                     # Encode samples to latent space
                     latent = encoder(samples)
@@ -384,6 +380,10 @@ class Trainer:
                     
                     # Keep raw texts for reference
                     raw_texts = batch.get('raw_texts', None)
+                    set_size = len(raw_texts)
+                    num_samples = len(raw_texts[0])
+                    # reshape raw_texts list from [set_size, num_samples] to [num_samples, set_size]
+                    raw_texts = [[raw_texts[j][i] for j in range(set_size)] for i in range(num_samples)]
 
                     print("bert_shape", samples["bert_input_ids"].shape, "gpt2_shape", samples["gpt2_input_ids"].shape)
                     print("len raw_texts", len(raw_texts), "len raw_texts[0]", len(raw_texts[0]))
