@@ -34,7 +34,6 @@ experiment:
   freeze_gpt2: true
   condition_method: "prefix"
   temperature: 0.8
-  top_p: 0.9
   max_length: 128
   
 # General settings

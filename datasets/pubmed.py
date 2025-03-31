@@ -26,7 +26,6 @@ class PubMedDataset(Dataset):
     def __init__(
         self,
         data_dir: str = "data/pubmed",
-        max_sets: int = 100,  # Maximum number of MeSH tag sets to use
         set_size: int = 20,   # Number of documents per set
         max_docs_per_tag: int = 1000,  # Maximum docs to consider per tag
         min_docs_per_tag: int = 50,    # Minimum docs required for a tag to be included
@@ -45,7 +44,6 @@ class PubMedDataset(Dataset):
         
         Args:
             data_dir: Directory to store the PubMed data
-            max_sets: Maximum number of MeSH tag sets to use
             set_size: Number of documents per set
             max_docs_per_tag: Maximum docs to consider per tag
             min_docs_per_tag: Minimum docs required for a tag to be included
@@ -65,7 +63,6 @@ class PubMedDataset(Dataset):
             torch.manual_seed(seed)
         
         self.data_dir = data_dir
-        self.max_sets = max_sets
         self.set_size = set_size
         self.max_docs_per_tag = max_docs_per_tag
         self.min_docs_per_tag = min_docs_per_tag
@@ -276,10 +273,6 @@ class PubMedDataset(Dataset):
             if len(term_articles) >= self.min_docs_per_tag
         ]
         
-        # Select up to max_sets MeSH terms
-        if len(valid_mesh_terms) > self.max_sets:
-            valid_mesh_terms = random.sample(valid_mesh_terms, self.max_sets)
-        
         logger.info(f"Selected {len(valid_mesh_terms)} valid MeSH terms")
         
         # Create the final dataset structure
@@ -380,7 +373,7 @@ class PubMedDataset(Dataset):
     
     def __getitem__(self, idx):
         item = self.data[idx]
-        
+                
         return {
             'mesh_term': item["mesh_term"],
             'samples': {
@@ -389,6 +382,6 @@ class PubMedDataset(Dataset):
                 'gpt2_input_ids': item["gpt2_input_ids"],
                 'gpt2_attention_mask': item["gpt2_attention_mask"]
             },
-            'raw_texts': item["raw_texts"],
-            'pmids': item.get("pmids", [])
+            'raw_texts': [item["raw_texts"]],
+            'pmids': [item.get("pmids", [])]
         } 

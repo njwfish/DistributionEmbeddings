@@ -6,5 +6,4 @@ condition_dim: ${experiment.condition_dim}
 freeze_gpt2: ${experiment.freeze_gpt2}
 condition_method: ${experiment.condition_method}
 temperature: ${experiment.temperature}
-top_p: ${experiment.top_p}
 max_length: ${experiment.max_length} 

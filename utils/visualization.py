@@ -45,7 +45,7 @@ def visualize_data(save_path, real, generated):
         plt.savefig(save_path)
         plt.close()
 
-def visualize_text_data(output_dir, original_texts, generated_texts, max_examples=5, max_texts_per_example=3):
+def visualize_text_data(output_dir, original_texts, generated_texts):
     """
     Visualize original and generated text data from the PubMed dataset.
     
@@ -58,7 +58,7 @@ def visualize_text_data(output_dir, original_texts, generated_texts, max_example
     """
     os.makedirs(output_dir, exist_ok=True)
     
-    for i in range(len(generated_texts)):
+    for i in range(len(original_texts)):
         df_original = pd.DataFrame(original_texts[i])
         df_original['type'] = 'original'
         df_generated = pd.DataFrame(generated_texts[i])

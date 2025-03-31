@@ -140,6 +140,10 @@ class Trainer:
                         else:
                             samples[key] = value
                     
+                    print("bert_shape", samples["bert_input_ids"].shape, "gpt2_shape", samples["gpt2_input_ids"].shape)
+                    print("len raw_texts", len(batch["raw_texts"]), "len raw_texts[0]", len(batch["raw_texts"][0]))
+
+
                     # Encode samples to latent space
                     latent = encoder(samples)
                     
@@ -228,6 +232,7 @@ class Trainer:
                 # Generate some samples with the trained model
                 samples = self.generate_samples(encoder, generator, dataloader)
                 if samples is not None:
+                    self.logger.info(f"Original samples shape: {samples.get('original', 'N/A').shape if hasattr(samples.get('original', None), 'shape') else 'N/A'}")
                     self.logger.info(f"Generated samples shape: {samples.get('generated', 'N/A').shape if hasattr(samples.get('generated', None), 'shape') else 'N/A'}")
                 
                     # Log generated samples to W&B (optional)
@@ -239,34 +244,9 @@ class Trainer:
                             visualize_text_data(
                                 text_output_dir,
                                 samples['original_texts'],
-                                samples['generated_texts'],
-                                max_examples=6,
-                                max_texts_per_example=10
+                                samples['generated_texts']
                             )
                             
-                            # Log text samples to W&B
-                            # Ensure we have valid data to log
-                            if (len(samples['original_texts']) > 0 and len(samples['original_texts'][0]) > 0 and
-                                len(samples['generated_texts']) > 0 and len(samples['generated_texts'][0]) > 0):
-                                wandb.log({
-                                    "text_samples": wandb.Table(
-                                        columns=["Original", "Generated"],
-                                        data=[
-                                            [str(samples['original_texts'][0][0]), str(samples['generated_texts'][0][0])],
-                                            [str(samples['original_texts'][0][1]) if len(samples['original_texts'][0]) > 1 else "", 
-                                                str(samples['generated_texts'][0][1]) if len(samples['generated_texts'][0]) > 1 else ""]
-                                        ]
-                                    )
-                                })
-                            
-                            # Log the saved text comparison images
-                            for i in range(min(3, len(samples.get('original_texts', [])))):
-                                img_path = os.path.join(text_output_dir, f"text_comparison_{i}.png")
-                                if os.path.exists(img_path):
-                                    wandb.log({
-                                        f"text_samples/comparison_{i}": wandb.Image(img_path)
-                                    })
-
                         elif 'original' in samples and 'generated' in samples and hasattr(samples['original'], 'shape'):
                             # For numerical or image data, use the original visualization
                             # We'll log just a few samples to avoid excessive data transfer
@@ -404,9 +384,14 @@ class Trainer:
                     
                     # Keep raw texts for reference
                     raw_texts = batch.get('raw_texts', None)
+
+                    print("bert_shape", samples["bert_input_ids"].shape, "gpt2_shape", samples["gpt2_input_ids"].shape)
+                    print("len raw_texts", len(raw_texts), "len raw_texts[0]", len(raw_texts[0]))
+
                     
                     # Encode samples to latent space
                     latent = encoder(samples)
+                    print("latent.shape", latent.shape, "raw_texts", len(raw_texts))
                     
                     # Generate new samples
                     generated = generator.sample(latent, num_samples=num_samples, return_texts=True)

@@ -197,8 +197,7 @@ class GPT2Generator:
         freeze_gpt2=False,
         condition_method="prefix",
         temperature=1.0,
-        top_p=0.9,
-        max_length=128
+        max_length=1024
     ):
         """
         Initialize the GPT-2 generator.
@@ -222,7 +221,6 @@ class GPT2Generator:
         )
         
         self.temperature = temperature
-        self.top_p = top_p
         self.max_length = max_length
         
         # Initialize tokenizer (for generation)
@@ -294,8 +292,7 @@ class GPT2Generator:
                     attention_mask=attention_mask,
                     latent=latent,
                     max_length=self.max_length,
-                    temperature=self.temperature,
-                    top_p=self.top_p
+                    temperature=self.temperature
                 )
             
             all_generated_ids.append(generated_ids)
@@ -317,7 +314,7 @@ class GPT2Generator:
         
         # Combine samples
         result = torch.stack(padded_ids, dim=1)  # [batch_size, num_samples, seq_len]
-        print(result.shape)
+        
         if return_texts:
             # Decode texts
             all_texts = []
@@ -331,19 +328,18 @@ class GPT2Generator:
                         text = "Generated text was empty."
                     batch_texts.append(text)
                 all_texts.append(batch_texts)
-            print(len(all_texts), len(all_texts[0]))
+            print(len(all_texts), [len(texts) for texts in all_texts])
             
             return result, all_texts
         
         return result
     
-    def _generate_text(self, input_ids, attention_mask, latent, max_length, temperature, top_p):
+    def _generate_text(
+            self, input_ids, attention_mask, latent, max_length, temperature=1.0
+        ):
         """Helper method for text generation using the conditioned GPT-2."""
         batch_size = input_ids.shape[0]
         device = input_ids.device
-        
-        # Keep track of which sequences are already finished
-        unfinished_sequences = input_ids.new(batch_size).fill_(1)
         
         # Initialize with the starting tokens
         cur_input_ids = input_ids
@@ -354,6 +350,7 @@ class GPT2Generator:
             # Reshape to 2D for generation
             cur_attention_mask = cur_attention_mask.squeeze(0)
         
+        # Generate tokens up to max_length
         for _ in range(max_length - 1):  # -1 because we start with one token
             # Get logits for the next token
             with torch.no_grad():
@@ -363,52 +360,24 @@ class GPT2Generator:
             next_token_logits = logits[:, -1, :]
             
             # Apply temperature
-            next_token_logits = next_token_logits / temperature
+            if temperature > 0:
+                next_token_logits = next_token_logits / temperature
             
-            # Apply top-p nucleus sampling
-            if top_p < 1.0:
-                sorted_logits, sorted_indices = torch.sort(next_token_logits, descending=True)
-                cumulative_probs = torch.cumsum(F.softmax(sorted_logits, dim=-1), dim=-1)
-                
-                # Remove tokens with cumulative probability above the threshold
-                sorted_indices_to_remove = cumulative_probs > top_p
-                # Keep at least one token
-                sorted_indices_to_remove[..., 0] = 0
-                
-                # Shift the indices to the right to prevent removing the first token
-                sorted_indices_to_remove[..., 1:] = sorted_indices_to_remove[..., :-1].clone()
-                sorted_indices_to_remove[..., 0] = 0
-                
-                # Create a sparse mask
-                indices_to_remove = sorted_indices_to_remove.scatter(
-                    1, sorted_indices, sorted_indices_to_remove
-                )
-                next_token_logits[indices_to_remove] = -float("inf")
-            
-            # Sample from the filtered distribution
+            # Simple sampling based on temperature
             probs = F.softmax(next_token_logits, dim=-1)
             next_tokens = torch.multinomial(probs, num_samples=1).squeeze(1)
             
             # Add the sampled token to the input
-            tokens = torch.cat([cur_input_ids, next_tokens.unsqueeze(-1)], dim=-1)
+            cur_input_ids = torch.cat([cur_input_ids, next_tokens.unsqueeze(-1)], dim=-1)
             
             # Update the attention mask
-            attention_mask = torch.cat(
+            cur_attention_mask = torch.cat(
                 [cur_attention_mask, torch.ones((batch_size, 1), device=device)], dim=1
             )
             
-            # Update which sequences are finished
-            eos_token_id = self.tokenizer.eos_token_id
-            next_tokens = next_tokens.masked_fill(~unfinished_sequences.bool(), eos_token_id)
-            unfinished_sequences = unfinished_sequences * (next_tokens != eos_token_id)
-            
-            # Stop if all sequences are finished
-            if unfinished_sequences.max() == 0:
+            # Check if we've reached the maximum length
+            if cur_input_ids.shape[1] >= max_length:
                 break
-            
-            # Update input for the next iteration
-            cur_input_ids = tokens
-            cur_attention_mask = attention_mask
         
         # Return the final tokens
         return cur_input_ids 
