@@ -1,6 +1,6 @@
 # @package _global_.dataset
 _target_: datasets.pubmed.PubMedDataset
-data_dir: "./data/pubmed"
+data_dir: "/orcd/data/omarabu/001/njwfish/DistributionEmbeddings/data/pubmed"
 max_sets: 200
 set_size: 20  
 max_docs_per_tag: 2000

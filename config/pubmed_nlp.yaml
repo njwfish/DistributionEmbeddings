@@ -40,7 +40,7 @@ experiment:
 # General settings
 seed: 42
 device: cuda
-experiment_name: pubmed_distribution_embeddings
+experiment_name: pubmed_exp
 
 # Hydra-related settings
 hydra:

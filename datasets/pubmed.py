@@ -25,7 +25,7 @@ class PubMedDataset(Dataset):
     
     def __init__(
         self,
-        data_dir: str = "./data/pubmed",
+        data_dir: str = "data/pubmed",
         max_sets: int = 100,  # Maximum number of MeSH tag sets to use
         set_size: int = 20,   # Number of documents per set
         max_docs_per_tag: int = 1000,  # Maximum docs to consider per tag
@@ -156,28 +156,21 @@ class PubMedDataset(Dataset):
             
             # Download the file if it doesn't exist
             if not os.path.exists(gz_file):
-                try:
-                    logger.info(f"Downloading {baseline_url}")
-                    response = requests.get(baseline_url, stream=True)
-                    response.raise_for_status()  # Raise an error for bad responses
-                    
-                    with open(gz_file, 'wb') as f:
-                        for chunk in response.iter_content(chunk_size=8192):
-                            f.write(chunk)
-                except Exception as e:
-                    logger.error(f"Error downloading file {file_name}: {e}")
-                    continue
-            
+                logger.info(f"Downloading {baseline_url}")
+                response = requests.get(baseline_url, stream=True)
+                response.raise_for_status()  # Raise an error for bad responses
+                
+                print("Downloading file", gz_file)
+                with open(gz_file, 'wb') as f:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        f.write(chunk)
+
             # Extract the file
             if not os.path.exists(xml_file):
-                try:
-                    logger.info(f"Extracting {gz_file}")
-                    with gzip.open(gz_file, 'rb') as f_in:
-                        with open(xml_file, 'wb') as f_out:
-                            shutil.copyfileobj(f_in, f_out)
-                except Exception as e:
-                    logger.error(f"Error extracting file {gz_file}: {e}")
-                    continue
+                logger.info(f"Extracting {gz_file}")
+                with gzip.open(gz_file, 'rb') as f_in:
+                    with open(xml_file, 'wb') as f_out:
+                        shutil.copyfileobj(f_in, f_out)
     
     def _extract_articles_from_xml(self):
         """Extract articles from the downloaded XML files."""
@@ -195,15 +188,11 @@ class PubMedDataset(Dataset):
         all_articles = []
         
         for xml_file in tqdm(xml_files, desc="Processing XML files"):
-            try:
-                logger.info(f"Processing {xml_file}")
-                articles = self._parse_xml_file(xml_file)
-                all_articles.extend(articles)
-                logger.info(f"Extracted {len(articles)} articles from {xml_file}")
-            except Exception as e:
-                logger.error(f"Error processing file {xml_file}: {e}")
-                continue
-        
+            logger.info(f"Processing {xml_file}")
+            articles = self._parse_xml_file(xml_file)
+            all_articles.extend(articles)
+            logger.info(f"Extracted {len(articles)} articles from {xml_file}")
+
         logger.info(f"Total articles extracted: {len(all_articles)}")
         
         # Save the extracted articles
@@ -215,102 +204,57 @@ class PubMedDataset(Dataset):
     def _parse_xml_file(self, xml_file):
         """Parse a single XML file and extract articles."""
         articles = []
+
+        # Use iterparse to avoid loading the entire file into memory
+        context = ET.iterparse(xml_file, events=('end',))
         
-        try:
-            # Use iterparse to avoid loading the entire file into memory
-            context = ET.iterparse(xml_file, events=('end',))
+        current_article = None
+        root = None  # Keep a reference to the root
+        
+        for event, elem in context:
+            # Get reference to the root
+            if root is None:
+                root = elem.getroot() if hasattr(elem, 'getroot') else elem
             
-            current_article = None
-            root = None  # Keep a reference to the root
-            
-            for event, elem in context:
-                # Get reference to the root
-                if root is None:
-                    root = elem.getroot() if hasattr(elem, 'getroot') else elem
+            if elem.tag == 'PubmedArticle':
+                # Extract PMID
+                pmid_elem = elem.find(".//PMID")
+                pmid = pmid_elem.text if pmid_elem is not None else None
                 
-                if elem.tag == 'PubmedArticle':
-                    try:
-                        # Extract PMID
-                        pmid_elem = elem.find(".//PMID")
-                        pmid = pmid_elem.text if pmid_elem is not None else None
-                        
-                        # Extract title
-                        title_elem = elem.find(".//ArticleTitle")
-                        title = title_elem.text if title_elem is not None else ""
-                        
-                        # Extract abstract
-                        abstract_text = ""
-                        abstract_elements = elem.findall(".//AbstractText")
-                        for abstract_elem in abstract_elements:
-                            if abstract_elem.text:
-                                abstract_text += abstract_elem.text + " "
-                        
-                        # Extract MeSH terms, focusing on major topics
-                        mesh_terms = []
-                        descriptor_elements = elem.findall(".//MeshHeading/DescriptorName")
-                        for desc_elem in descriptor_elements:
-                            if desc_elem.get("MajorTopicYN") == "Y" and desc_elem.text:
-                                mesh_terms.append(desc_elem.text)
-                        
-                        if pmid and title and abstract_text and mesh_terms:
-                            articles.append({
-                                "pmid": pmid,
-                                "title": title,
-                                "abstract": abstract_text.strip(),
-                                "mesh_terms": mesh_terms
-                            })
-                    except Exception as e:
-                        logger.warning(f"Error extracting data from article: {e}")
-                    
-                    # Clear the element to save memory
-                    elem.clear()
-            
-            # Clear the root element after processing
-            if root is not None:
-                root.clear()
-            
-            return articles
-            
-        except Exception as e:
-            logger.error(f"Error parsing XML file {xml_file}: {e}")
-            return []
-    
-    def _create_synthetic_data(self):
-        """Create synthetic data if XML parsing fails."""
-        logger.info("Creating synthetic data for testing...")
+                # Extract title
+                title_elem = elem.find(".//ArticleTitle")
+                title = title_elem.text if title_elem is not None else ""
+                
+                # Extract abstract
+                abstract_text = ""
+                abstract_elements = elem.findall(".//AbstractText")
+                for abstract_elem in abstract_elements:
+                    if abstract_elem.text:
+                        abstract_text += abstract_elem.text + " "
+                
+                # Extract MeSH terms, focusing on major topics
+                mesh_terms = []
+                descriptor_elements = elem.findall(".//MeshHeading/DescriptorName")
+                for desc_elem in descriptor_elements:
+                    if desc_elem.get("MajorTopicYN") == "Y" and desc_elem.text:
+                        mesh_terms.append(desc_elem.text)
+                
+                if pmid and title and abstract_text and mesh_terms:
+                    articles.append({
+                        "pmid": pmid,
+                        "title": title,
+                        "abstract": abstract_text.strip(),
+                        "mesh_terms": mesh_terms
+                    })
+
+                # Clear the element to save memory
+                elem.clear()
         
-        # Create synthetic MeSH terms
-        mesh_categories = [
-            "Cardiovascular Diseases", "Nervous System Diseases", "Respiratory Tract Diseases", 
-            "Digestive System Diseases", "Immune System Diseases", "Endocrine System Diseases",
-            "Mental Disorders", "Neoplasms", "Infectious Diseases", "Genetic Diseases"
-        ]
+        # Clear the root element after processing
+        if root is not None:
+            root.clear()
         
-        # Generate 5000 synthetic articles
-        articles = []
-        for i in range(5000):
-            # Assign 1-3 random MeSH terms
-            num_terms = random.randint(1, 3)
-            mesh_terms = random.sample(mesh_categories, num_terms)
-            
-            # Create synthetic title and abstract based on MeSH terms
-            title = f"Study on {' and '.join(mesh_terms)} - Sample {i}"
-            abstract = f"This is a synthetic abstract about {', '.join(mesh_terms)}. "
-            abstract += "It contains placeholder text to simulate a real medical abstract. "
-            abstract += "The study examines the relationship between various factors and outcomes."
-            
-            articles.append({
-                "pmid": str(i),
-                "title": title,
-                "abstract": abstract,
-                "mesh_terms": mesh_terms
-            })
-        
-        # Save the synthetic articles
-        with open(self.processed_articles_file, 'w') as f:
-            json.dump(articles, f)
-        
-        logger.info(f"Created {len(articles)} synthetic articles")
+        return articles
     
     def _create_document_sets(self):
         """Create document sets based on MeSH terms."""
@@ -388,37 +332,34 @@ class PubMedDataset(Dataset):
             texts = item["texts"]
             pmids = item.get("pmids", [])
             
-            try:
-                # Tokenize texts for BERT
-                bert_encodings = self.bert_tokenizer(
-                    texts, 
-                    padding='max_length',
-                    truncation=True,
-                    max_length=self.max_bert_length,
-                    return_tensors='pt'
-                )
-                
-                # Tokenize texts for GPT-2
-                gpt2_encodings = self.gpt2_tokenizer(
-                    texts,
-                    padding='max_length',
-                    truncation=True,
-                    max_length=self.max_gpt2_length,
-                    return_tensors='pt'
-                )
-                
-                tokenized_data.append({
-                    "mesh_term": mesh_term,
-                    "bert_input_ids": bert_encodings["input_ids"],
-                    "bert_attention_mask": bert_encodings["attention_mask"],
-                    "gpt2_input_ids": gpt2_encodings["input_ids"],
-                    "gpt2_attention_mask": gpt2_encodings["attention_mask"],
-                    "raw_texts": texts,
-                    "pmids": pmids
-                })
-            except Exception as e:
-                logger.warning(f"Error tokenizing document set for term {mesh_term}: {e}")
-        
+            # Tokenize texts for BERT
+            bert_encodings = self.bert_tokenizer(
+                texts, 
+                padding='max_length',
+                truncation=True,
+                max_length=self.max_bert_length,
+                return_tensors='pt'
+            )
+            
+            # Tokenize texts for GPT-2
+            gpt2_encodings = self.gpt2_tokenizer(
+                texts,
+                padding='max_length',
+                truncation=True,
+                max_length=self.max_gpt2_length,
+                return_tensors='pt'
+            )
+            
+            tokenized_data.append({
+                "mesh_term": mesh_term,
+                "bert_input_ids": bert_encodings["input_ids"],
+                "bert_attention_mask": bert_encodings["attention_mask"],
+                "gpt2_input_ids": gpt2_encodings["input_ids"],
+                "gpt2_attention_mask": gpt2_encodings["attention_mask"],
+                "raw_texts": texts,
+                "pmids": pmids
+            })
+
         logger.info(f"Tokenized {len(tokenized_data)} document sets")
         
         # Save the tokenized data

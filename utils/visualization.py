@@ -56,99 +56,14 @@ def visualize_text_data(output_dir, original_texts, generated_texts, max_example
         max_examples: Maximum number of examples to visualize
         max_texts_per_example: Maximum number of texts per example
     """
-    try:
-        os.makedirs(output_dir, exist_ok=True)
-        
-        # Validate inputs and handle possible errors
-        if not original_texts or not generated_texts:
-            print("Warning: Empty text data provided for visualization")
-            # Create a placeholder visualization
-            with open(os.path.join(output_dir, "text_samples.txt"), 'w') as f:
-                f.write("No valid text samples available for visualization.\n")
-            return
-        
-        # Ensure original_texts and generated_texts have consistent types
-        if not isinstance(original_texts, list):
-            print(f"Warning: original_texts is not a list, got {type(original_texts)}")
-            original_texts = [[str(original_texts)]]
-        elif original_texts and not isinstance(original_texts[0], list):
-            original_texts = [original_texts]
-            
-        if not isinstance(generated_texts, list):
-            print(f"Warning: generated_texts is not a list, got {type(generated_texts)}")
-            generated_texts = [[str(generated_texts)]]
-        elif generated_texts and not isinstance(generated_texts[0], list):
-            generated_texts = [generated_texts]
-        
-        # Determine how many examples to visualize
-        num_examples = min(len(original_texts), len(generated_texts), max_examples)
-        
-        for i in range(num_examples):
-            try:
-                # Get the original and generated texts for this example
-                orig_set = original_texts[i]
-                gen_set = generated_texts[i]
-                
-                # Ensure texts are strings
-                orig_set = [str(text) for text in orig_set]
-                gen_set = [str(text) for text in gen_set]
-                
-                # Limit the number of texts per example
-                orig_set = orig_set[:max_texts_per_example]
-                gen_set = gen_set[:max_texts_per_example]
-                
-                # Create a figure
-                fig, ax = plt.subplots(figsize=(20, 10))
-                ax.axis('off')
-                
-                # Add the original and generated texts
-                text_content = "ORIGINAL TEXTS:\n\n"
-                for j, text in enumerate(orig_set):
-                    wrapped_text = textwrap.fill(text, width=100)
-                    text_content += f"{j+1}. {wrapped_text}\n\n"
-                
-                text_content += "\nGENERATED TEXTS:\n\n"
-                for j, text in enumerate(gen_set):
-                    wrapped_text = textwrap.fill(text, width=100)
-                    text_content += f"{j+1}. {wrapped_text}\n\n"
-                
-                ax.text(0.05, 0.95, text_content, va='top', fontsize=12, 
-                        fontfamily='monospace', linespacing=1.5)
-                
-                # Save the figure
-                plt.tight_layout()
-                plt.savefig(os.path.join(output_dir, f"text_comparison_{i}.png"))
-                plt.close()
-            except Exception as e:
-                print(f"Error visualizing example {i}: {e}")
-                continue
-        
-        # Also save the texts as a plain text file for easier reading
-        with open(os.path.join(output_dir, "text_samples.txt"), 'w') as f:
-            for i in range(num_examples):
-                try:
-                    f.write(f"Sample {i+1}\n")
-                    f.write("="*80 + "\n\n")
-                    
-                    f.write("ORIGINAL TEXTS:\n")
-                    orig_set = original_texts[i][:max_texts_per_example]
-                    for j, text in enumerate(orig_set):
-                        f.write(f"{j+1}. {text}\n\n")
-                    
-                    f.write("\nGENERATED TEXTS:\n")
-                    gen_set = generated_texts[i][:max_texts_per_example]
-                    for j, text in enumerate(gen_set):
-                        f.write(f"{j+1}. {text}\n\n")
-                    
-                    f.write("\n" + "="*80 + "\n\n")
-                except Exception as e:
-                    f.write(f"Error writing sample {i+1}: {e}\n\n")
-                    continue
-    except Exception as e:
-        print(f"Error in text visualization: {e}")
-        # Create a basic error file
-        os.makedirs(output_dir, exist_ok=True)
-        with open(os.path.join(output_dir, "visualization_error.txt"), 'w') as f:
-            f.write(f"Error during text visualization: {e}\n")
-            f.write("Original texts type: " + str(type(original_texts)) + "\n")
-            f.write("Generated texts type: " + str(type(generated_texts)) + "\n")
+    os.makedirs(output_dir, exist_ok=True)
+    
+    for i in range(len(generated_texts)):
+        df_original = pd.DataFrame(original_texts[i])
+        df_original['type'] = 'original'
+        df_generated = pd.DataFrame(generated_texts[i])
+        df_generated['type'] = 'generated'
+        df_combined = pd.concat([df_original, df_generated], axis=0)
+        df_combined.to_csv(os.path.join(output_dir, f"text_samples_{i}.csv"), index=False)
+    
+    

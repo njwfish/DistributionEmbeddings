@@ -228,74 +228,58 @@ class Trainer:
                 # Generate some samples with the trained model
                 samples = self.generate_samples(encoder, generator, dataloader)
                 if samples is not None:
-                    try:
-                        self.logger.info(f"Generated samples shape: {samples.get('generated', 'N/A').shape if hasattr(samples.get('generated', None), 'shape') else 'N/A'}")
-                    
-                        # Log generated samples to W&B (optional)
-                        if wandb.run is not None:
-                            # Handle different types of samples
-                            if 'generated_texts' in samples:
-                                try:
-                                    # For text data, use our text visualization
-                                    text_output_dir = os.path.join(output_dir, f"text_samples_epoch_{epoch+1}")
-                                    visualize_text_data(
-                                        text_output_dir,
-                                        samples['original_texts'],
-                                        samples['generated_texts'],
-                                        max_examples=6,
-                                        max_texts_per_example=10
+                    self.logger.info(f"Generated samples shape: {samples.get('generated', 'N/A').shape if hasattr(samples.get('generated', None), 'shape') else 'N/A'}")
+                
+                    # Log generated samples to W&B (optional)
+                    if wandb.run is not None:
+                        # Handle different types of samples
+                        if 'generated_texts' in samples:
+                            # For text data, use our text visualization
+                            text_output_dir = os.path.join(output_dir, f"text_samples_epoch_{epoch+1}")
+                            visualize_text_data(
+                                text_output_dir,
+                                samples['original_texts'],
+                                samples['generated_texts'],
+                                max_examples=6,
+                                max_texts_per_example=10
+                            )
+                            
+                            # Log text samples to W&B
+                            # Ensure we have valid data to log
+                            if (len(samples['original_texts']) > 0 and len(samples['original_texts'][0]) > 0 and
+                                len(samples['generated_texts']) > 0 and len(samples['generated_texts'][0]) > 0):
+                                wandb.log({
+                                    "text_samples": wandb.Table(
+                                        columns=["Original", "Generated"],
+                                        data=[
+                                            [str(samples['original_texts'][0][0]), str(samples['generated_texts'][0][0])],
+                                            [str(samples['original_texts'][0][1]) if len(samples['original_texts'][0]) > 1 else "", 
+                                                str(samples['generated_texts'][0][1]) if len(samples['generated_texts'][0]) > 1 else ""]
+                                        ]
                                     )
-                                    
-                                    # Log text samples to W&B
-                                    try:
-                                        # Ensure we have valid data to log
-                                        if (len(samples['original_texts']) > 0 and len(samples['original_texts'][0]) > 0 and
-                                            len(samples['generated_texts']) > 0 and len(samples['generated_texts'][0]) > 0):
-                                            wandb.log({
-                                                "text_samples": wandb.Table(
-                                                    columns=["Original", "Generated"],
-                                                    data=[
-                                                        [str(samples['original_texts'][0][0]), str(samples['generated_texts'][0][0])],
-                                                        [str(samples['original_texts'][0][1]) if len(samples['original_texts'][0]) > 1 else "", 
-                                                         str(samples['generated_texts'][0][1]) if len(samples['generated_texts'][0]) > 1 else ""]
-                                                    ]
-                                                )
-                                            })
-                                    except Exception as e:
-                                        self.logger.warning(f"Failed to log text table to W&B: {e}")
-                                    
-                                    # Log the saved text comparison images
-                                    for i in range(min(3, len(samples.get('original_texts', [])))):
-                                        try:
-                                            img_path = os.path.join(text_output_dir, f"text_comparison_{i}.png")
-                                            if os.path.exists(img_path):
-                                                wandb.log({
-                                                    f"text_samples/comparison_{i}": wandb.Image(img_path)
-                                                })
-                                        except Exception as e:
-                                            self.logger.warning(f"Failed to log text comparison image: {e}")
-                                except Exception as e:
-                                    self.logger.warning(f"Failed to visualize text data: {e}")
-                            elif 'original' in samples and 'generated' in samples and hasattr(samples['original'], 'shape'):
-                                try:
-                                    # For numerical or image data, use the original visualization
-                                    # We'll log just a few samples to avoid excessive data transfer
-                                    n_examples = min(6, samples['original'].shape[0])
-                                    
-                                    for i in range(n_examples):
-                                        save_path = os.path.join(output_dir, f"pairplot_generated_{i}.png")
-                                        visualize_data(
-                                            save_path, samples['original'][i], samples['generated'][i]
-                                        )
-                                        wandb.log({
-                                            f"samples/generated_{i}": wandb.Image(save_path)
-                                        })
-                                except Exception as e:
-                                    self.logger.warning(f"Failed to visualize numerical data: {e}")
-                            else:
-                                self.logger.warning("Samples dict has unexpected format, skipping visualization")
-                    except Exception as e:
-                        self.logger.warning(f"Error during sample generation or visualization: {e}")
+                                })
+                            
+                            # Log the saved text comparison images
+                            for i in range(min(3, len(samples.get('original_texts', [])))):
+                                img_path = os.path.join(text_output_dir, f"text_comparison_{i}.png")
+                                if os.path.exists(img_path):
+                                    wandb.log({
+                                        f"text_samples/comparison_{i}": wandb.Image(img_path)
+                                    })
+
+                        elif 'original' in samples and 'generated' in samples and hasattr(samples['original'], 'shape'):
+                            # For numerical or image data, use the original visualization
+                            # We'll log just a few samples to avoid excessive data transfer
+                            n_examples = min(6, samples['original'].shape[0])
+                            
+                            for i in range(n_examples):
+                                save_path = os.path.join(output_dir, f"pairplot_{i}_epoch_{epoch+1}.png")
+                                visualize_data(
+                                    save_path, samples['original'][i], samples['generated'][i]
+                                )
+                                wandb.log({
+                                    f"samples/generated_{i}": wandb.Image(save_path)
+                                })
                 
                 # Check if this is the best model so far
                 if eval_loss < self.best_loss:

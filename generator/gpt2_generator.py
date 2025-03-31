@@ -289,22 +289,14 @@ class GPT2Generator:
         for _ in range(num_samples):
             # Use model for text generation
             with torch.no_grad():
-                try:
-                    generated_ids = self._generate_text(
-                        input_ids=start_tokens,
-                        attention_mask=attention_mask,
-                        latent=latent,
-                        max_length=self.max_length,
-                        temperature=self.temperature,
-                        top_p=self.top_p
-                    )
-                except Exception as e:
-                    print(f"Error in text generation: {e}")
-                    # Create a minimal valid output in case of error
-                    generated_ids = torch.cat([
-                        start_tokens, 
-                        torch.tensor([[self.tokenizer.eos_token_id]] * batch_size, device=device)
-                    ], dim=1)
+                generated_ids = self._generate_text(
+                    input_ids=start_tokens,
+                    attention_mask=attention_mask,
+                    latent=latent,
+                    max_length=self.max_length,
+                    temperature=self.temperature,
+                    top_p=self.top_p
+                )
             
             all_generated_ids.append(generated_ids)
         
@@ -325,24 +317,21 @@ class GPT2Generator:
         
         # Combine samples
         result = torch.stack(padded_ids, dim=1)  # [batch_size, num_samples, seq_len]
-        
+        print(result.shape)
         if return_texts:
             # Decode texts
             all_texts = []
             for batch_idx in range(batch_size):
                 batch_texts = []
                 for sample_idx in range(num_samples):
-                    try:
-                        ids = result[batch_idx, sample_idx]
-                        text = self.tokenizer.decode(ids, skip_special_tokens=True)
-                        # Make sure we have at least some text
-                        if not text.strip():
-                            text = "Generated text was empty."
-                    except Exception as e:
-                        print(f"Error decoding text: {e}")
-                        text = "Error generating text."
+                    ids = result[batch_idx, sample_idx]
+                    text = self.tokenizer.decode(ids, skip_special_tokens=True)
+                    # Make sure we have at least some text
+                    if not text.strip():
+                        text = "Generated text was empty."
                     batch_texts.append(text)
                 all_texts.append(batch_texts)
+            print(len(all_texts), len(all_texts[0]))
             
             return result, all_texts
         

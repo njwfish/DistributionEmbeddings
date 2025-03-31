@@ -24,7 +24,7 @@ experiment:
 # General settings
 seed: 42
 device: cuda
-experiment_name: mnist_ddpm_experiment
+experiment_name: mnist_exp
 
 # Hydra-related settings
 hydra:

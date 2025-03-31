@@ -23,7 +23,7 @@ experiment:
 # General settings
 seed: 42
 device: cuda
-experiment_name: test
+experiment_name: simple_exp
 
 # Hydra-related settings
 hydra:
