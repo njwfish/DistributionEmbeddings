@@ -2,10 +2,16 @@ import torch
 import torch.nn as nn
 
 class MLP(nn.Module):
-    def __init__(self, in_dim, hidden_dim, out_dim, layers=2):
+    def __init__(self, in_dims, hidden_dim, out_dim, layers=2):
         super().__init__()
+        if isinstance(in_dims, int):
+            in_dims = [in_dims]
+        
+        self.in_dims = in_dims
+        total_in_dim = sum(in_dims)
+        
         self.layers = nn.ModuleList([
-            nn.Linear(in_dim, hidden_dim),
+            nn.Linear(total_in_dim, hidden_dim),
             nn.SELU()
         ])
         for _ in range(layers - 1):
@@ -13,7 +19,18 @@ class MLP(nn.Module):
             self.layers.append(nn.SELU())
         self.layers.append(nn.Linear(hidden_dim, out_dim))
 
-    def forward(self, x):
+    def forward(self, *inputs): 
+        if isinstance(self.in_dims, int):
+            inputs = [inputs]
+        
+        assert len(inputs) == len(self.in_dims), f"Expected {len(self.in_dims)} inputs, got {len(inputs)}"
+        
+        # check input dimensions
+        for i, (x, d) in enumerate(zip(inputs, self.in_dims)):
+            assert x.shape[-1] == d, f"Input {i} has wrong dimension: expected {d}, got {x.shape[-1]}"
+        
+        x = torch.cat(inputs, dim=-1) 
+        
         for layer in self.layers:
             x = layer(x)
         return x

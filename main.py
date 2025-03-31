@@ -10,7 +10,7 @@ import os
 import utils.config_resolvers as config_resolvers
 import utils.hash_utils as hash_utils
 
-@hydra.main(config_path="config", config_name="config", version_base="1.1")
+@hydra.main(config_path="config", config_name="simple_distn_exp", version_base="1.1")
 def main(cfg: DictConfig):
     logger = logging.getLogger(__name__)
     logger.info("\n" + OmegaConf.to_yaml(cfg))
@@ -26,7 +26,6 @@ def main(cfg: DictConfig):
     
     if existing_dir is not None:
         logger.info(f"Found existing results for this configuration: {existing_dir}")
-        # You could choose to exit here or continue with the same directory
     
     # Set random seed
     if cfg.seed is not None:
@@ -66,7 +65,7 @@ def main(cfg: DictConfig):
         trainer = hydra.utils.instantiate(cfg.training)
         
         # Run training with the hash-based output directory
-        stats = trainer.train(
+        output_dir, stats = trainer.train(
             encoder=encoder,
             generator=generator,
             dataloader=dataloader,
@@ -77,33 +76,7 @@ def main(cfg: DictConfig):
         )
         
         logger.info(f"Training completed. Best epoch: {stats['best_epoch']}")
-        
-        # Generate some samples with the trained model
-        samples = trainer.generate_samples(encoder, generator, dataloader)
-        logger.info(f"Generated samples shape: {samples['generated'].shape}")
-        
-        # Log generated samples to W&B (optional)
-        if wandb.run is not None and samples is not None:
-            # We'll log just a few samples to avoid excessive data transfer
-            n_examples = min(5, samples['original'].shape[0])
-            
-            # For 1D data
-            if len(samples['original'].shape) == 3:  # [batch, set_size, features]
-                for i in range(n_examples):
-                    wandb.log({
-                        f"samples/original_{i}": wandb.Histogram(samples['original'][i].numpy()),
-                        f"samples/generated_{i}": wandb.Histogram(samples['generated'][i].numpy())
-                    })
-            # For image data
-            elif len(samples['original'].shape) == 4:  # [batch, set_size, height, width]
-                # Log a grid of images
-                orig_images = samples['original'][:n_examples].reshape(-1, *samples['original'].shape[2:])
-                gen_images = samples['generated'][:n_examples].reshape(-1, *samples['generated'].shape[2:])
-                
-                wandb.log({
-                    "samples/original": [wandb.Image(img) for img in orig_images],
-                    "samples/generated": [wandb.Image(img) for img in gen_images]
-                })
+                    
     
     finally:
         # Make sure to finish the W&B run

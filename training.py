@@ -8,7 +8,7 @@ from tqdm import tqdm
 import logging
 import wandb
 from utils.hash_utils import get_output_dir, find_matching_output_dir
-
+from utils.visualization import visualize_data
 class Trainer:
     def __init__(
         self,
@@ -130,10 +130,10 @@ class Trainer:
                 optimizer.zero_grad()
                 
                 # Encode samples to latent space
-                latent = encoder(samples)
+                latent = encoder(samples) # latent is num samples x num sets x latent dim
                 
                 # Calculate loss
-                loss = generator.loss(samples, latent)
+                loss = generator.loss(samples.view(-1, *samples.shape[2:]), latent)
                 
                 # Backpropagate
                 loss.backward()
@@ -199,7 +199,7 @@ class Trainer:
                     wandb.save(checkpoint_path)
             
             # Evaluation and early stopping logic
-            if (epoch + 1) % self.eval_interval == 0:
+            if (epoch + 1) % self.eval_interval == 0 or (epoch + 1) == self.num_epochs:
                 eval_loss = self._evaluate(encoder, generator, dataloader, device)
                 stats['eval_losses'].append(eval_loss)
                 
@@ -211,6 +211,24 @@ class Trainer:
                         "epoch/eval_loss": eval_loss,
                         "epoch/epoch": epoch + 1,
                     }, step=(epoch + 1) * len(dataloader))
+
+                # Generate some samples with the trained model
+                samples = self.generate_samples(encoder, generator, dataloader)
+                self.logger.info(f"Generated samples shape: {samples['generated'].shape}")
+                
+                # Log generated samples to W&B (optional)
+                if wandb.run is not None and samples is not None:
+                    # We'll log just a few samples to avoid excessive data transfer
+                    n_examples = min(6, samples['original'].shape[0])
+                    
+                    for i in range(n_examples):
+                        save_path = os.path.join(output_dir, f"pairplot_generated_{i}.png")
+                        visualize_data(
+                            save_path, samples['original'][i], samples['generated'][i]
+                        )
+                        wandb.log({
+                            f"samples/generated_{i}": wandb.Image(save_path)
+                        })
                 
                 # Check if this is the best model so far
                 if eval_loss < self.best_loss:
@@ -255,11 +273,12 @@ class Trainer:
         # Log final stats to W&B
         if wandb.run is not None:
             wandb.run.summary["total_time"] = stats['total_time']
-            wandb.run.summary["final_train_loss"] = stats['train_losses'][-1]
+            if stats['train_losses']:
+                wandb.run.summary["final_train_loss"] = stats['train_losses'][-1]
             if stats['eval_losses']:
                 wandb.run.summary["final_eval_loss"] = stats['eval_losses'][-1]
         
-        return stats
+        return output_dir, stats
     
     def _evaluate(self, encoder, generator, dataloader, device):
         """Run evaluation and return average loss."""
@@ -277,14 +296,14 @@ class Trainer:
                 latent = encoder(samples)
                 
                 # Calculate loss
-                loss = generator.loss(samples, latent)
+                loss = generator.loss(samples.view(-1, *samples.shape[2:]), latent)
                 
                 total_loss += loss.item()
                 num_batches += 1
         
         return total_loss / num_batches
     
-    def generate_samples(self, encoder, generator, dataloader, num_samples=5, device=None):
+    def generate_samples(self, encoder, generator, dataloader, num_samples=100, device=None):
         """Generate samples using the trained model."""
         if device is None:
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -304,8 +323,9 @@ class Trainer:
                 
                 # Generate new samples
                 generated = generator.sample(latent, num_samples=num_samples)
-                
+
                 return {
                     'original': samples.cpu(),
                     'generated': generated.cpu()
                 } 
+            

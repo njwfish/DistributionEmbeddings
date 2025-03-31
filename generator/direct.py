@@ -23,11 +23,12 @@ class DirectGenerator(nn.Module):
     def forward(self, latent, num_samples=1):
         eps = torch.randn(latent.shape[0], num_samples, self.noise_dim).to(latent.device)
         latent = latent.unsqueeze(1).repeat(1, num_samples, 1)
-        lat_eps = torch.cat([latent, eps], dim=2)
-        return self.model(lat_eps)
+        return self.model(latent, eps)
 
     def loss(self, x, latent):
-        recon = self(latent, x.shape[1])
+        samples_per_set = x.shape[0] // latent.shape[0]
+        recon = self(latent, num_samples=samples_per_set)
+        x = x.reshape(recon.shape)
         return self.loss_fn(recon, x)
     
     def sample(self, latent, num_samples):

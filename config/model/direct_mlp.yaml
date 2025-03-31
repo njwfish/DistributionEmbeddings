@@ -1,0 +1,5 @@
+_target_: layers.MLP
+in_dims: [${experiment.latent_dim}, ${experiment.noise_dim}]
+hidden_dim: ${experiment.hidden_dim}
+out_dim: ${dataset.data_shape[0]}
+layers: 2

@@ -18,6 +18,7 @@ class MNISTMixedSetsDataset(Dataset):
         train: bool = True,
         download: bool = True,
         seed: Optional[int] = None,
+        data_shape: Tuple[int, int, int] = (1, 28, 28),
     ):
         """
         Args:
@@ -79,6 +80,7 @@ class MNISTMixedSetsDataset(Dataset):
             sets.append(torch.cat(set_per_class, dim=0))
             metadata.append(metadata_per_class)
         
+        print(torch.stack(sets).float().shape)
         return torch.stack(sets).float(), metadata
     
     def __len__(self):

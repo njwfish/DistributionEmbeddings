@@ -1,6 +1,6 @@
 _target_: datasets.distribution_datasets.MultinomialDistributionDataset
 n_sets: 10000
 set_size: 100
-n_features: 5
 n_per_multinomial: 20
 seed: ${seed} 
+data_shape: [5]

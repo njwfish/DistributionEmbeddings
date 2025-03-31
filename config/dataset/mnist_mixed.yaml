@@ -6,3 +6,4 @@ root: ./data
 train: true
 download: true
 seed: ${seed} 
+data_shape: [1, 28, 28]
