@@ -8,7 +8,8 @@ from tqdm import tqdm
 import logging
 import wandb
 from utils.hash_utils import get_output_dir, find_matching_output_dir
-from utils.visualization import visualize_data
+from utils.visualization import visualize_data, visualize_text_data
+
 class Trainer:
     def __init__(
         self,
@@ -125,15 +126,27 @@ class Trainer:
             
             # Train for one epoch
             for batch_idx, batch in enumerate(pbar):
-                samples = batch['samples'].to(device)
+                # Handle samples which can be either a tensor or a dictionary
+                if isinstance(batch['samples'], torch.Tensor):
+                    samples = batch['samples'].to(device)
+                    latent = encoder(samples)  # latent is num samples x num sets x latent dim
+                    loss = generator.loss(samples.view(-1, *samples.shape[2:]), latent)
+                else:
+                    # For dictionary samples (like PubMed dataset), move tensors to device
+                    samples = {}
+                    for key, value in batch['samples'].items():
+                        if isinstance(value, torch.Tensor):
+                            samples[key] = value.to(device)
+                        else:
+                            samples[key] = value
+                    
+                    # Encode samples to latent space
+                    latent = encoder(samples)
+                    
+                    # Calculate loss
+                    loss = generator.loss(samples, latent)
                 
                 optimizer.zero_grad()
-                
-                # Encode samples to latent space
-                latent = encoder(samples) # latent is num samples x num sets x latent dim
-                
-                # Calculate loss
-                loss = generator.loss(samples.view(-1, *samples.shape[2:]), latent)
                 
                 # Backpropagate
                 loss.backward()
@@ -214,21 +227,75 @@ class Trainer:
 
                 # Generate some samples with the trained model
                 samples = self.generate_samples(encoder, generator, dataloader)
-                self.logger.info(f"Generated samples shape: {samples['generated'].shape}")
-                
-                # Log generated samples to W&B (optional)
-                if wandb.run is not None and samples is not None:
-                    # We'll log just a few samples to avoid excessive data transfer
-                    n_examples = min(6, samples['original'].shape[0])
+                if samples is not None:
+                    try:
+                        self.logger.info(f"Generated samples shape: {samples.get('generated', 'N/A').shape if hasattr(samples.get('generated', None), 'shape') else 'N/A'}")
                     
-                    for i in range(n_examples):
-                        save_path = os.path.join(output_dir, f"pairplot_generated_{i}.png")
-                        visualize_data(
-                            save_path, samples['original'][i], samples['generated'][i]
-                        )
-                        wandb.log({
-                            f"samples/generated_{i}": wandb.Image(save_path)
-                        })
+                        # Log generated samples to W&B (optional)
+                        if wandb.run is not None:
+                            # Handle different types of samples
+                            if 'generated_texts' in samples:
+                                try:
+                                    # For text data, use our text visualization
+                                    text_output_dir = os.path.join(output_dir, f"text_samples_epoch_{epoch+1}")
+                                    visualize_text_data(
+                                        text_output_dir,
+                                        samples['original_texts'],
+                                        samples['generated_texts'],
+                                        max_examples=6,
+                                        max_texts_per_example=10
+                                    )
+                                    
+                                    # Log text samples to W&B
+                                    try:
+                                        # Ensure we have valid data to log
+                                        if (len(samples['original_texts']) > 0 and len(samples['original_texts'][0]) > 0 and
+                                            len(samples['generated_texts']) > 0 and len(samples['generated_texts'][0]) > 0):
+                                            wandb.log({
+                                                "text_samples": wandb.Table(
+                                                    columns=["Original", "Generated"],
+                                                    data=[
+                                                        [str(samples['original_texts'][0][0]), str(samples['generated_texts'][0][0])],
+                                                        [str(samples['original_texts'][0][1]) if len(samples['original_texts'][0]) > 1 else "", 
+                                                         str(samples['generated_texts'][0][1]) if len(samples['generated_texts'][0]) > 1 else ""]
+                                                    ]
+                                                )
+                                            })
+                                    except Exception as e:
+                                        self.logger.warning(f"Failed to log text table to W&B: {e}")
+                                    
+                                    # Log the saved text comparison images
+                                    for i in range(min(3, len(samples.get('original_texts', [])))):
+                                        try:
+                                            img_path = os.path.join(text_output_dir, f"text_comparison_{i}.png")
+                                            if os.path.exists(img_path):
+                                                wandb.log({
+                                                    f"text_samples/comparison_{i}": wandb.Image(img_path)
+                                                })
+                                        except Exception as e:
+                                            self.logger.warning(f"Failed to log text comparison image: {e}")
+                                except Exception as e:
+                                    self.logger.warning(f"Failed to visualize text data: {e}")
+                            elif 'original' in samples and 'generated' in samples and hasattr(samples['original'], 'shape'):
+                                try:
+                                    # For numerical or image data, use the original visualization
+                                    # We'll log just a few samples to avoid excessive data transfer
+                                    n_examples = min(6, samples['original'].shape[0])
+                                    
+                                    for i in range(n_examples):
+                                        save_path = os.path.join(output_dir, f"pairplot_generated_{i}.png")
+                                        visualize_data(
+                                            save_path, samples['original'][i], samples['generated'][i]
+                                        )
+                                        wandb.log({
+                                            f"samples/generated_{i}": wandb.Image(save_path)
+                                        })
+                                except Exception as e:
+                                    self.logger.warning(f"Failed to visualize numerical data: {e}")
+                            else:
+                                self.logger.warning("Samples dict has unexpected format, skipping visualization")
+                    except Exception as e:
+                        self.logger.warning(f"Error during sample generation or visualization: {e}")
                 
                 # Check if this is the best model so far
                 if eval_loss < self.best_loss:
@@ -290,13 +357,25 @@ class Trainer:
         
         with torch.no_grad():
             for batch in dataloader:
-                samples = batch['samples'].to(device)
-                
-                # Encode samples to latent space
-                latent = encoder(samples)
-                
-                # Calculate loss
-                loss = generator.loss(samples.view(-1, *samples.shape[2:]), latent)
+                # Handle samples which can be either a tensor or a dictionary
+                if isinstance(batch['samples'], torch.Tensor):
+                    samples = batch['samples'].to(device)
+                    latent = encoder(samples)
+                    loss = generator.loss(samples.view(-1, *samples.shape[2:]), latent)
+                else:
+                    # For dictionary samples (like PubMed dataset), move tensors to device
+                    samples = {}
+                    for key, value in batch['samples'].items():
+                        if isinstance(value, torch.Tensor):
+                            samples[key] = value.to(device)
+                        else:
+                            samples[key] = value
+                    
+                    # Encode samples to latent space
+                    latent = encoder(samples)
+                    
+                    # Calculate loss
+                    loss = generator.loss(samples, latent)
                 
                 total_loss += loss.item()
                 num_batches += 1
@@ -316,16 +395,51 @@ class Trainer:
         
         with torch.no_grad():
             for batch in dataloader:
-                samples = batch['samples'].to(device)
-                
-                # Encode samples to latent space
-                latent = encoder(samples)
-                
-                # Generate new samples
-                generated = generator.sample(latent, num_samples=num_samples)
-
-                return {
-                    'original': samples.cpu(),
-                    'generated': generated.cpu()
-                } 
+                # Handle samples which can be either a tensor or a dictionary
+                if isinstance(batch['samples'], torch.Tensor):
+                    samples = batch['samples'].to(device)
+                    
+                    # Encode samples to latent space
+                    latent = encoder(samples)
+                    
+                    # Generate new samples
+                    generated = generator.sample(latent, num_samples=num_samples)
+                    
+                    return {
+                        'original': samples.cpu(),
+                        'generated': generated.cpu()
+                    }
+                else:
+                    # For dictionary samples (like PubMed dataset), move tensors to device
+                    samples = {}
+                    for key, value in batch['samples'].items():
+                        if isinstance(value, torch.Tensor):
+                            samples[key] = value.to(device)
+                        else:
+                            samples[key] = value
+                    
+                    # Keep raw texts for reference
+                    raw_texts = batch.get('raw_texts', None)
+                    
+                    # Encode samples to latent space
+                    latent = encoder(samples)
+                    
+                    # Generate new samples
+                    generated = generator.sample(latent, num_samples=num_samples, return_texts=True)
+                    
+                    if isinstance(generated, tuple):
+                        # If generator returns both token ids and decoded texts
+                        generated_ids, generated_texts = generated
+                        return {
+                            'original': samples,
+                            'generated': generated_ids.cpu(),
+                            'original_texts': raw_texts,
+                            'generated_texts': generated_texts
+                        }
+                    else:
+                        return {
+                            'original': samples,
+                            'generated': generated.cpu(),
+                            'original_texts': raw_texts
+                        } 
             

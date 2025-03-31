@@ -9,11 +9,15 @@ This repository contains implementation of Distribution Embeddings for various s
 ├── config/                      # Main Hydra configuration files
 ├── datasets/                    # Dataset implementations
 │   ├── distribution_datasets.py # Distribution datasets
-│   └── mnist.py                 # MNIST dataset utilities
+│   ├── mnist.py                 # MNIST dataset utilities
+│   └── pubmed.py                # PubMed abstracts dataset
 ├── encoder/                     # Encoder models
-│   └── encoders.py              # Various encoder implementations
+│   ├── encoders.py              # Various encoder implementations
+│   └── nlp_encoders.py          # NLP-specific encoders (BERT)
 ├── generator/                   # Generator models and losses
 │   ├── generators.py            # Generator implementations
+│   ├── gpt2_generator.py        # GPT-2 based text generator
+│   ├── ddpm.py                  # Diffusion models
 │   └── losses.py                # Loss functions for generators
 ├── notebooks/                   # Jupyter notebooks for examples and experiments
 ├── utils/                       # Utility functions
@@ -43,6 +47,54 @@ python main.py training.num_epochs=200 training.early_stopping=False
 # Multirun with different seeds
 python main.py --multirun seed=42,43,44,45,46
 ```
+
+### NLP Document Distribution Example
+
+This project includes an NLP example for modeling document distributions using BERT and GPT-2. The example uses the PubMed dataset, organizing documents by MeSH (Medical Subject Heading) tags to form document sets.
+
+#### Architecture
+
+The NLP document distribution model consists of:
+
+1. **BERT Document Encoder**: Processes each document using BERT and extracts document features
+2. **Distribution Encoder**: Encodes the set of document features into a distribution embedding
+3. **GPT-2 Generator**: Generates new text samples conditioned on the distribution embedding
+
+#### Running the PubMed Example
+
+To train the PubMed document distribution model:
+
+```bash
+# Train with default PubMed configuration
+python main.py -c pubmed_nlp
+
+# Customize BERT and GPT-2 settings
+python main.py -c pubmed_nlp experiment.bert_model_name=bert-base-uncased experiment.freeze_bert=false
+```
+
+The model learns to:
+- Embed sets of documents (sharing the same MeSH tag) into a common latent space
+- Generate new documents that reflect the distribution of documents in the original set
+- Capture the semantic characteristics of document sets
+
+#### Customizing the NLP Model
+
+You can customize various aspects of the NLP model:
+
+- **BERT model**: Change the base BERT model or its output dimensions
+  ```bash
+  python main.py -c pubmed_nlp experiment.bert_model_name=bert-large-uncased experiment.bert_output_dim=1024
+  ```
+
+- **Distribution encoder**: Try different distribution encoder architectures
+  ```bash
+  python main.py -c pubmed_nlp experiment.distribution_encoder_type=gnn
+  ```
+
+- **GPT-2 settings**: Adjust the generator's conditioning method or parameters
+  ```bash
+  python main.py -c pubmed_nlp experiment.condition_method=additive experiment.freeze_gpt2=false
+  ```
 
 ### Experiment Management
 
@@ -79,7 +131,9 @@ outputs/
 │   ├── config.yaml        # Saved configuration
 │   ├── best_model.pt      # Best model checkpoint
 │   └── checkpoint_*.pt    # Training checkpoints
-└── mnist_a1b2c3d4e5/      # Experiment with MNIST data
+├── mnist_a1b2c3d4e5/      # Experiment with MNIST data
+│   └── ...
+└── pubmed_7e8f9g0h1i/     # Experiment with PubMed document distributions
     └── ...
 ```
 
