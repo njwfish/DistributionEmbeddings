@@ -27,7 +27,6 @@ class PubMedDataset(Dataset):
         self,
         data_dir: str = "data/pubmed",
         set_size: int = 20,   # Number of documents per set
-        max_docs_per_tag: int = 1000,  # Maximum docs to consider per tag
         min_docs_per_tag: int = 50,    # Minimum docs required for a tag to be included
         bert_model_name: str = "bert-base-uncased",
         gpt2_model_name: str = "gpt2",
@@ -45,7 +44,6 @@ class PubMedDataset(Dataset):
         Args:
             data_dir: Directory to store the PubMed data
             set_size: Number of documents per set
-            max_docs_per_tag: Maximum docs to consider per tag
             min_docs_per_tag: Minimum docs required for a tag to be included
             bert_model_name: BERT model name for tokenization
             gpt2_model_name: GPT-2 model name for tokenization
@@ -64,7 +62,6 @@ class PubMedDataset(Dataset):
         
         self.data_dir = data_dir
         self.set_size = set_size
-        self.max_docs_per_tag = max_docs_per_tag
         self.min_docs_per_tag = min_docs_per_tag
         self.max_bert_length = max_bert_length
         self.max_gpt2_length = max_gpt2_length
@@ -175,6 +172,8 @@ class PubMedDataset(Dataset):
         
         xml_dir = os.path.join(self.raw_data_dir, "xml")
         xml_files = glob.glob(os.path.join(xml_dir, "*.xml"))
+        # sort the xml files by the file number
+        xml_files.sort()
         
         if not xml_files:
             logger.warning("No XML files found. Using synthetic data instead.")
@@ -279,10 +278,7 @@ class PubMedDataset(Dataset):
         processed_data = []
         for term in valid_mesh_terms:
             term_articles = mesh_to_articles[term]
-            
-            # Limit to max_docs_per_tag
-            if len(term_articles) > self.max_docs_per_tag:
-                term_articles = random.sample(term_articles, self.max_docs_per_tag)
+        
             
             # Ensure we have at least set_size documents
             if len(term_articles) < self.set_size:

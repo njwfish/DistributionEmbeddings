@@ -10,19 +10,20 @@ defaults:
   - scheduler: cosine
   - training: default
   - wandb: default
+  - override hydra/launcher: slurm
   - _self_
 
 experiment:
-  latent_dim: 64
+  latent_dim: 128
   hidden_dim: 256
-  batch_size: 8
+  batch_size: 6
   lr: 2e-5
   
   # BERT settings
   bert_model_name: "bert-base-uncased"
   bert_output_dim: 768
   pooling_strategy: "cls"
-  freeze_bert: true
+  freeze_bert: false
   
   # Distribution encoder settings
   distribution_encoder_type: "gnn"
@@ -31,7 +32,7 @@ experiment:
   # GPT-2 settings
   gpt2_model_name: "gpt2"
   condition_dim: 768
-  freeze_gpt2: true
+  freeze_gpt2: false
   condition_method: "prefix"
   temperature: 0.8
   max_length: 128

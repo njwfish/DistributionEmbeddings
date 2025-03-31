@@ -242,6 +242,17 @@ class Trainer:
                                 samples['original_texts'],
                                 samples['generated_texts']
                             )
+
+                            # Create a combined table with original and generated texts side by side
+                            paired_data = []
+                            for i in range(len(samples['original_texts'])):
+                                for j in range(len(samples['original_texts'][i])):
+                                    paired_data.append([samples['original_texts'][i][j], samples['generated_texts'][i][j]])
+                            
+                            # Log a single table with both original and generated texts
+                            wandb.log({
+                                "epoch/text_samples": wandb.Table(data=paired_data, columns=["original", "generated"])
+                            }, step=(epoch + 1) * len(dataloader))
                             
                         elif 'original' in samples and 'generated' in samples and hasattr(samples['original'], 'shape'):
                             # For numerical or image data, use the original visualization
@@ -380,21 +391,16 @@ class Trainer:
                     
                     # Keep raw texts for reference
                     raw_texts = batch.get('raw_texts', None)
-                    set_size = len(raw_texts)
-                    num_samples = len(raw_texts[0])
+                    num_sets = len(raw_texts)
+                    set_size = len(raw_texts[0])
                     # reshape raw_texts list from [set_size, num_samples] to [num_samples, set_size]
-                    raw_texts = [[raw_texts[j][i] for j in range(set_size)] for i in range(num_samples)]
+                    raw_texts = [[raw_texts[j][i] for j in range(num_sets)] for i in range(set_size)]
 
-                    print("bert_shape", samples["bert_input_ids"].shape, "gpt2_shape", samples["gpt2_input_ids"].shape)
-                    print("len raw_texts", len(raw_texts), "len raw_texts[0]", len(raw_texts[0]))
-
-                    
                     # Encode samples to latent space
                     latent = encoder(samples)
-                    print("latent.shape", latent.shape, "raw_texts", len(raw_texts))
                     
                     # Generate new samples
-                    generated = generator.sample(latent, num_samples=num_samples, return_texts=True)
+                    generated = generator.sample(latent, num_samples=num_sets, return_texts=True)
                     
                     if isinstance(generated, tuple):
                         # If generator returns both token ids and decoded texts

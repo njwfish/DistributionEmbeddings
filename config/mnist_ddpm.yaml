@@ -10,6 +10,7 @@ defaults:
   - scheduler: none
   - training: default
   - wandb: default
+  - override hydra/launcher: slurm
   - _self_
 
 experiment:
