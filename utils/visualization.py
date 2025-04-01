@@ -3,6 +3,8 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from torchvision.utils import make_grid
+import os
+import textwrap
 
 def visualize_data(save_path, real, generated, max_features_to_plot=10):
     if len(real.shape) == 2: # [set_size, features]
@@ -48,3 +50,26 @@ def visualize_data(save_path, real, generated, max_features_to_plot=10):
         # Save the figure
         plt.savefig(save_path)
         plt.close()
+
+def visualize_text_data(output_dir, original_texts, generated_texts):
+    """
+    Visualize original and generated text data from the PubMed dataset.
+    
+    Args:
+        output_dir: Directory to save the visualizations
+        original_texts: Original texts from the dataset
+        generated_texts: Generated texts from the model
+        max_examples: Maximum number of examples to visualize
+        max_texts_per_example: Maximum number of texts per example
+    """
+    os.makedirs(output_dir, exist_ok=True)
+    
+    for i in range(len(original_texts)):
+        df_original = pd.DataFrame(original_texts[i])
+        df_original['type'] = 'original'
+        df_generated = pd.DataFrame(generated_texts[i])
+        df_generated['type'] = 'generated'
+        df_combined = pd.concat([df_original, df_generated], axis=0)
+        df_combined.to_csv(os.path.join(output_dir, f"text_samples_{i}.csv"), index=False)
+    
+    

@@ -10,6 +10,7 @@ defaults:
   - scheduler: none
   - training: default
   - wandb: default
+  - override hydra/launcher: slurm
   - _self_
 
 experiment:
@@ -23,7 +24,7 @@ experiment:
 # General settings
 seed: 42
 device: cuda
-experiment_name: test
+experiment_name: simple_exp
 
 # Hydra-related settings
 hydra:

@@ -7,7 +7,6 @@ import wandb
 import os
 
 # Import our resolver for sum operations
-import utils.config_resolvers as config_resolvers
 import utils.hash_utils as hash_utils
 
 @hydra.main(config_path="config", config_name="simple_distn_exp", version_base="1.1")

@@ -1,0 +1,59 @@
+# @package _global_
+
+# Set default configurations
+defaults:
+  - dataset: pubmed
+  - encoder: bert_document
+  - model: bert_gpt2_mlp
+  - generator: gpt2
+  - optimizer: adam
+  - scheduler: cosine
+  - training: default
+  - wandb: default
+  - override hydra/launcher: slurm
+  - _self_
+
+experiment:
+  latent_dim: 128
+  hidden_dim: 256
+  batch_size: 6
+  lr: 2e-5
+  
+  # BERT settings
+  bert_model_name: "bert-base-uncased"
+  bert_output_dim: 768
+  pooling_strategy: "cls"
+  freeze_bert: false
+  
+  # Distribution encoder settings
+  distribution_encoder_type: "gnn"
+  distribution_layers: 2
+  
+  # GPT-2 settings
+  gpt2_model_name: "gpt2"
+  condition_dim: 768
+  freeze_gpt2: false
+  condition_method: "prefix"
+  temperature: 0.8
+  max_length: 128
+  
+# General settings
+seed: 42
+device: cuda
+experiment_name: pubmed_exp
+
+# Hydra-related settings
+hydra:
+  run:
+    dir: outputs/${experiment_name}/${now:%Y-%m-%d_%H-%M-%S}
+  sweep:
+    dir: multirun/${experiment_name}/${now:%Y-%m-%d_%H-%M-%S}
+    subdir: ${hydra.job.num}
+  job:
+    config:
+      override_dirname:
+        exclude_keys:
+          - seed
+          - device
+          - hydra
+          - experiment_name 

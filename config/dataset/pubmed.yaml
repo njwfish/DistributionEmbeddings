@@ -1,0 +1,14 @@
+# @package _global_.dataset
+_target_: datasets.pubmed.PubMedDataset
+data_dir: "/orcd/data/omarabu/001/njwfish/DistributionEmbeddings/data/pubmed"
+set_size: 20  
+min_docs_per_tag: 50
+bert_model_name: ${experiment.bert_model_name}
+gpt2_model_name: ${experiment.gpt2_model_name}
+max_bert_length: 128
+max_gpt2_length: 256
+download: true
+force_reprocess: false
+num_files_to_download: 100
+start_file_num: 1
+seed: ${seed} 
