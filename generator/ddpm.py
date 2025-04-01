@@ -84,8 +84,12 @@ class DDPM(nn.Module):
         # dropout context with some probability
         # context_mask = torch.bernoulli(torch.zeros(c.shape[0])+self.drop_prob).to(self.device)
         
+        # sample random indices across features
+        indices = torch.randperm(x.shape[1])[:1_000].to(x.device)
         # return MSE between added noise, and our predicted noise
-        return self.loss_mse(noise, self.model(x_t, c, _ts[:, None] / self.n_T))
+        return self.loss_mse(
+            noise[:, indices], self.model(x_t, c, _ts[:, None] / self.n_T, node_indices=indices)
+        )
     
     def loss(self, x, c):
         return self.forward(x, c)

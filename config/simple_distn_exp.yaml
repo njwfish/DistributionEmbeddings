@@ -4,7 +4,7 @@
 defaults:
   - dataset: normal
   - encoder: gnn
-  - model: mlp
+  - model: direct_mlp
   - generator: wasserstein
   - optimizer: adam
   - scheduler: none
