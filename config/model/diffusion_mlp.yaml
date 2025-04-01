@@ -5,4 +5,4 @@ in_dims:
   - 1
 hidden_dim: ${experiment.hidden_dim}
 out_dim: ${dataset.data_shape[0]}
-layers: 2
+layers: 4
