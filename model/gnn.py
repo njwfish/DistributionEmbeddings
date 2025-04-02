@@ -15,9 +15,13 @@ class GNN(nn.Module):
         self.hidden_dim = hidden_dim
         self.out_dim = out_dim
 
-        self.shared_mlp = MLP([gnn_dim] + in_dims, hidden_dim * 10, shared_embedding_dim, layers=layers_shared)
+        self.shared_mlp = MLP(
+            [gnn_dim] + in_dims, hidden_dim * 10, shared_embedding_dim, layers=layers_shared
+        )
 
-        self.mlp = MLP([1, embedding_dim, shared_embedding_dim] + in_dims, hidden_dim, out_dim, layers=layers)
+        self.mlp = MLP(
+            [1, embedding_dim, shared_embedding_dim] + in_dims, hidden_dim, out_dim, layers=layers
+        )
         self.positional_embedding = torch.nn.Embedding(num_embeddings=gnn_dim, embedding_dim=embedding_dim)
 
     def forward(self, *x, node_indices=None):
