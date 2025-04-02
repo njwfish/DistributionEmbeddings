@@ -6,7 +6,7 @@ from pathlib import Path
 import subprocess
 import torch
 from torch.utils.data import Dataset
-from typing import Optional
+from typing import Optional, List
 
 def GetLTSeqData(root):
     root = Path(root)
@@ -21,6 +21,8 @@ def GetLTSeqData(root):
         'genes': 'https://kleintools.hms.harvard.edu/paper_websites/state_fate2020/stateFate_inVitro_gene_names.txt.gz',
         'clones': 'https://kleintools.hms.harvard.edu/paper_websites/state_fate2020/stateFate_inVitro_clone_matrix.mtx.gz',
     }
+
+    root.mkdir(parents=True, exist_ok=True)
 
     for name, url in urls.items():
         fn = root / Path(url).name
@@ -65,6 +67,7 @@ class LTSeqDataset(Dataset):
         min_cells: int = 3,
         n_pcs: int = 50,
         root: str = './data',
+        data_shape: List[int] = [50],
         seed: Optional[int] = None
     ):
         if seed is not None:
@@ -75,6 +78,7 @@ class LTSeqDataset(Dataset):
         self.min_cells = min_cells
         self.n_pcs = n_pcs
         self.root = root
+        self.data_shape = data_shape
 
         adata = GetLTSeqData(root)
         sc.tl.pca(adata, n_comps=n_pcs)

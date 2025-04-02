@@ -4,10 +4,16 @@ import numpy as np
 import matplotlib.pyplot as plt
 from torchvision.utils import make_grid
 
-def visualize_data(save_path, real, generated):
-    if len(real.shape) == 3: # [batch, set_size, features]
+def visualize_data(save_path, real, generated, max_features_to_plot=10):
+    if len(real.shape) == 2: # [set_size, features]
         original_flat = real.numpy()
         generated_flat = generated.numpy()
+        _, features = real.shape
+
+        if features > max_features_to_plot:
+            random_features = np.random.choice(features, size=max_features_to_plot, replace=False)
+            original_flat = original_flat[:, random_features]
+            generated_flat = generated_flat[:, random_features]
         
         # Create a pairplot of the original and generated data
         # save to outputs config directory
@@ -17,7 +23,7 @@ def visualize_data(save_path, real, generated):
         plt.savefig(save_path)
         plt.close()
 
-    elif len(real.shape) == 4: # [batch, set_size, channels, height, width]
+    elif len(real.shape) == 3: # [set_size, channels, height, width]
 
         # Create grids of real and generated images
         real_grid = make_grid(real*-1 + 1, nrow=10)
