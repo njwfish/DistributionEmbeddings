@@ -102,6 +102,7 @@ class Trainer:
             encoder.load_state_dict(checkpoint['encoder_state_dict'])
             generator.model.load_state_dict(checkpoint['generator_state_dict'])
             optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
             start_epoch = checkpoint['epoch']
             
             # Log resuming to W&B
@@ -203,6 +204,7 @@ class Trainer:
                     'encoder_state_dict': encoder.state_dict(),
                     'generator_state_dict': generator.model.state_dict(),
                     'optimizer_state_dict': optimizer.state_dict(),
+                    'scheduler_state_dict': scheduler.state_dict(),
                     'loss': avg_epoch_loss,
                 }, checkpoint_path)
                 self.logger.info(f"Saved checkpoint to {checkpoint_path}")

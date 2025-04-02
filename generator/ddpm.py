@@ -115,7 +115,13 @@ class DDPM(nn.Module):
 
             z = torch.randn_like(x).to(device) if i > 1 else 0
 
-            eps = self.model(x, context, t_is)
+            with torch.no_grad():
+                num_nodes = x.shape[1]
+                # break nodes into chunks of 1000 using numpy
+                node_chunks = np.array_split(np.arange(num_nodes), 1000)
+                eps = torch.zeros_like(x)
+                for j in node_chunks:
+                    eps[:, j] = self.model(x, context, t_is, node_indices=torch.tensor(j).to(device))
 
             x = (
                 self.oneover_sqrta[i] * (x - eps * self.mab_over_sqrtmab[i])

@@ -1,0 +1,10 @@
+_target_: model.gnn.GNN
+gnn_dim: ${dataset.data_shape[0]}
+in_dims:
+  - ${experiment.latent_dim}
+  - 1
+hidden_dim: ${experiment.hidden_dim}
+embedding_dim: 64
+shared_embedding_dim: 128
+layers: ${experiment.layers}
+layers_shared: ${experiment.layers_shared}

@@ -14,10 +14,12 @@ defaults:
 
 experiment:
   latent_dim: 128  # Increased from 16 for potentially more complex data
-  hidden_dim: 1024 # Increased from 64 for more capacity
+  hidden_dim: 128 # Increased from 64 for more capacity
   noise_dim: 64
   set_size: 100
-  batch_size: 256
+  batch_size: 96
+  layers: 4
+  layers_shared: 2
   lr: 2e-4
 
 # General settings
