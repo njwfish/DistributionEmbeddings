@@ -19,7 +19,7 @@ class MLP(nn.Module):
             self.layers.append(nn.SELU())
         self.layers.append(nn.Linear(hidden_dim, out_dim))
 
-    def forward(self, *inputs): 
+    def forward(self, *inputs, subsample_indices=None): 
         if isinstance(self.in_dims, int):
             inputs = [inputs]
         
@@ -33,6 +33,9 @@ class MLP(nn.Module):
         
         for layer in self.layers:
             x = layer(x)
+
+        if subsample_indices is not None:
+            x = x[:, subsample_indices, ...]
         return x
 
 class MeanPooledFC(nn.Module):
