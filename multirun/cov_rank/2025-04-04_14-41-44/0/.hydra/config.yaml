@@ -1,0 +1,77 @@
+dataset:
+  _target_: datasets.distribution_datasets.RankedNormalDataset
+  n_sets: 10000
+  set_size: 100
+  data_shape:
+  - 5
+  dim: 5
+  fixed_mu: 0
+  rank: 1
+  seed: ${seed}
+encoder:
+  _target_: encoder.encoders.DistributionEncoderGNN
+  in_dim: ${dataset.data_shape[0]}
+  latent_dim: ${experiment.latent_dim}
+  hidden_dim: ${experiment.hidden_dim}
+  set_size: ${experiment.set_size}
+  layers: 2
+  fc_layers: 2
+model:
+  _target_: layers.MLP
+  in_dims:
+  - ${experiment.latent_dim}
+  - ${experiment.noise_dim}
+  hidden_dim: ${experiment.hidden_dim}
+  out_dim: ${dataset.data_shape[0]}
+  layers: 2
+generator:
+  _target_: generator.direct.DirectGenerator
+  model: ${model}
+  loss_type: swd
+  loss_params:
+    n_projections: 100
+    p: 2
+  noise_dim: ${experiment.noise_dim}
+optimizer:
+  _target_: torch.optim.Adam
+  _partial_: true
+  lr: ${experiment.lr}
+  betas:
+  - 0.9
+  - 0.999
+  eps: 1.0e-08
+  weight_decay: 0
+scheduler:
+  _target_: torch.optim.lr_scheduler.ConstantLR
+  _partial_: true
+  factor: 1.0
+  total_iters: 1
+training:
+  _target_: training.Trainer
+  num_epochs: 100
+  log_interval: 5
+  save_interval: 10
+  eval_interval: 2
+  early_stopping: true
+  patience: 5
+  use_tqdm: false
+wandb:
+  _target_: wandb_utils.setup_wandb
+  project: distribution-embeddings
+  entity: null
+  name: null
+  mode: online
+  tags: []
+  notes: null
+  group: null
+  save_code: true
+experiment:
+  latent_dim: 16
+  hidden_dim: 64
+  noise_dim: 16
+  set_size: 100
+  batch_size: 64
+  lr: 0.0002
+seed: 42
+device: cuda
+experiment_name: cov_rank

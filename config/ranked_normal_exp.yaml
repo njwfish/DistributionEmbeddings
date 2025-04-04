@@ -2,7 +2,7 @@
 
 # Set default configurations
 defaults:
-  - dataset: lineage_tracing
+  - dataset: ranked_normal
   - encoder: gnn
   - model: direct_mlp
   - generator: wasserstein
@@ -23,7 +23,7 @@ experiment:
 # General settings
 seed: 42
 device: cuda
-experiment_name: ltseq
+experiment_name: cov_rank
 
 # Hydra-related settings
 hydra:

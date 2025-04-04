@@ -1,0 +1,244 @@
+hydra:
+  run:
+    dir: outputs/${experiment_name}/${now:%Y-%m-%d_%H-%M-%S}
+  sweep:
+    dir: multirun/${experiment_name}/${now:%Y-%m-%d_%H-%M-%S}
+    subdir: ${hydra.job.num}
+  launcher:
+    _target_: hydra._internal.core_plugins.basic_launcher.BasicLauncher
+  sweeper:
+    _target_: hydra._internal.core_plugins.basic_sweeper.BasicSweeper
+    max_batch_size: null
+    params: null
+  help:
+    app_name: ${hydra.job.name}
+    header: '${hydra.help.app_name} is powered by Hydra.
+
+      '
+    footer: 'Powered by Hydra (https://hydra.cc)
+
+      Use --hydra-help to view Hydra specific help
+
+      '
+    template: '${hydra.help.header}
+
+      == Configuration groups ==
+
+      Compose your configuration from those groups (group=option)
+
+
+      $APP_CONFIG_GROUPS
+
+
+      == Config ==
+
+      Override anything in the config (foo.bar=value)
+
+
+      $CONFIG
+
+
+      ${hydra.help.footer}
+
+      '
+  hydra_help:
+    template: 'Hydra (${hydra.runtime.version})
+
+      See https://hydra.cc for more info.
+
+
+      == Flags ==
+
+      $FLAGS_HELP
+
+
+      == Configuration groups ==
+
+      Compose your configuration from those groups (For example, append hydra/job_logging=disabled
+      to command line)
+
+
+      $HYDRA_CONFIG_GROUPS
+
+
+      Use ''--cfg hydra'' to Show the Hydra config.
+
+      '
+    hydra_help: ???
+  hydra_logging:
+    version: 1
+    formatters:
+      simple:
+        format: '[%(asctime)s][HYDRA] %(message)s'
+    handlers:
+      console:
+        class: logging.StreamHandler
+        formatter: simple
+        stream: ext://sys.stdout
+    root:
+      level: INFO
+      handlers:
+      - console
+    loggers:
+      logging_example:
+        level: DEBUG
+    disable_existing_loggers: false
+  job_logging:
+    version: 1
+    formatters:
+      simple:
+        format: '[%(asctime)s][%(name)s][%(levelname)s] - %(message)s'
+    handlers:
+      console:
+        class: logging.StreamHandler
+        formatter: simple
+        stream: ext://sys.stdout
+      file:
+        class: logging.FileHandler
+        formatter: simple
+        filename: ${hydra.runtime.output_dir}/${hydra.job.name}.log
+    root:
+      level: INFO
+      handlers:
+      - console
+      - file
+    disable_existing_loggers: false
+  env: {}
+  mode: MULTIRUN
+  searchpath: []
+  callbacks: {}
+  output_subdir: .hydra
+  overrides:
+    hydra:
+    - hydra.mode=MULTIRUN
+    task:
+    - dataset.rank=1,2
+  job:
+    name: main
+    chdir: null
+    override_dirname: dataset.rank=1,2
+    id: ???
+    num: ???
+    config_name: ranked_normal_exp
+    env_set: {}
+    env_copy: []
+    config:
+      override_dirname:
+        kv_sep: '='
+        item_sep: ','
+        exclude_keys:
+        - seed
+        - device
+        - hydra
+        - experiment_name
+  runtime:
+    version: 1.3.2
+    version_base: '1.1'
+    cwd: /orcd/data/omarabu/001/gokul/DistributionEmbeddings
+    config_sources:
+    - path: hydra.conf
+      schema: pkg
+      provider: hydra
+    - path: /orcd/data/omarabu/001/gokul/DistributionEmbeddings/config
+      schema: file
+      provider: main
+    - path: ''
+      schema: structured
+      provider: schema
+    output_dir: ???
+    choices:
+      wandb: default
+      training: fast
+      scheduler: none
+      optimizer: adam
+      generator: wasserstein
+      model: direct_mlp
+      encoder: gnn
+      dataset: ranked_normal
+      hydra/env: default
+      hydra/callbacks: null
+      hydra/job_logging: default
+      hydra/hydra_logging: default
+      hydra/hydra_help: default
+      hydra/help: default
+      hydra/sweeper: basic
+      hydra/launcher: basic
+      hydra/output: default
+  verbose: false
+dataset:
+  _target_: datasets.distribution_datasets.RankedNormalDataset
+  n_sets: 10000
+  set_size: 100
+  data_shape:
+  - 5
+  dim: 5
+  fixed_mu: 0
+  rank: 2
+  seed: ${seed}
+encoder:
+  _target_: encoder.encoders.DistributionEncoderGNN
+  in_dim: ${dataset.data_shape[0]}
+  latent_dim: ${experiment.latent_dim}
+  hidden_dim: ${experiment.hidden_dim}
+  set_size: ${experiment.set_size}
+  layers: 2
+  fc_layers: 2
+model:
+  _target_: layers.MLP
+  in_dims:
+  - ${experiment.latent_dim}
+  - ${experiment.noise_dim}
+  hidden_dim: ${experiment.hidden_dim}
+  out_dim: ${dataset.data_shape[0]}
+  layers: 2
+generator:
+  _target_: generator.direct.DirectGenerator
+  model: ${model}
+  loss_type: swd
+  loss_params:
+    n_projections: 100
+    p: 2
+  noise_dim: ${experiment.noise_dim}
+optimizer:
+  _target_: torch.optim.Adam
+  _partial_: true
+  lr: ${experiment.lr}
+  betas:
+  - 0.9
+  - 0.999
+  eps: 1.0e-08
+  weight_decay: 0
+scheduler:
+  _target_: torch.optim.lr_scheduler.ConstantLR
+  _partial_: true
+  factor: 1.0
+  total_iters: 1
+training:
+  _target_: training.Trainer
+  num_epochs: 100
+  log_interval: 5
+  save_interval: 10
+  eval_interval: 2
+  early_stopping: true
+  patience: 5
+  use_tqdm: false
+wandb:
+  _target_: wandb_utils.setup_wandb
+  project: distribution-embeddings
+  entity: null
+  name: null
+  mode: online
+  tags: []
+  notes: null
+  group: null
+  save_code: true
+experiment:
+  latent_dim: 16
+  hidden_dim: 64
+  noise_dim: 16
+  set_size: 100
+  batch_size: 64
+  lr: 0.0002
+seed: 42
+device: cuda
+experiment_name: cov_rank

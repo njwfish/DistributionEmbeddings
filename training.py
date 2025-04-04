@@ -83,29 +83,29 @@ class Trainer:
         last_checkpoint = None
         start_epoch = 0
         
-        # Try to find the latest checkpoint if it exists
-        for filename in os.listdir(output_dir):
-            if filename.startswith("checkpoint_epoch_"):
-                try:
-                    epoch_num = int(filename.split("_")[-1].split(".")[0])
-                    if last_checkpoint is None or epoch_num > start_epoch:
-                        last_checkpoint = os.path.join(output_dir, filename)
-                        start_epoch = epoch_num
-                except (ValueError, IndexError):
-                    continue
+        # # Try to find the latest checkpoint if it exists
+        # for filename in os.listdir(output_dir):
+        #     if filename.startswith("checkpoint_epoch_"):
+        #         try:
+        #             epoch_num = int(filename.split("_")[-1].split(".")[0])
+        #             if last_checkpoint is None or epoch_num > start_epoch:
+        #                 last_checkpoint = os.path.join(output_dir, filename)
+        #                 start_epoch = epoch_num
+        #         except (ValueError, IndexError):
+        #             continue
         
-        # Resume from checkpoint if found
-        if last_checkpoint is not None and os.path.exists(last_checkpoint):
-            self.logger.info(f"Resuming from checkpoint: {last_checkpoint}")
-            checkpoint = torch.load(last_checkpoint, weights_only=False)
-            encoder.load_state_dict(checkpoint['encoder_state_dict'])
-            generator.model.load_state_dict(checkpoint['generator_state_dict'])
-            optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-            start_epoch = checkpoint['epoch']
+        # # Resume from checkpoint if found
+        # if last_checkpoint is not None and os.path.exists(last_checkpoint):
+        #     self.logger.info(f"Resuming from checkpoint: {last_checkpoint}")
+        #     checkpoint = torch.load(last_checkpoint, weights_only=False)
+        #     encoder.load_state_dict(checkpoint['encoder_state_dict'])
+        #     generator.model.load_state_dict(checkpoint['generator_state_dict'])
+        #     optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        #     start_epoch = checkpoint['epoch']
             
-            # Log resuming to W&B
-            if wandb.run is not None:
-                wandb.run.summary["resumed_from_epoch"] = start_epoch
+        #     # Log resuming to W&B
+        #     if wandb.run is not None:
+        #         wandb.run.summary["resumed_from_epoch"] = start_epoch
         
         start_time = time.time()
         self.logger.info(f"Starting training on {device}...")
@@ -215,20 +215,31 @@ class Trainer:
                 # Generate some samples with the trained model
                 samples = self.generate_samples(encoder, generator, dataloader)
                 self.logger.info(f"Generated samples shape: {samples['generated'].shape}")
+
+                gen_var = samples['generated'].var(axis=1)
+                input_var = samples['original'].var(axis=1)
+                gen_mu = samples['generated'].mean(axis=1)
+                input_mu = samples['original'].mean(axis=1)
+
+                if wandb.run is not None:
+                    wandb.log({
+                        "samples/var mse" : ((gen_var - input_var)**2).mean(),
+                        "samples/mean_mse" : ((gen_mu - input_mu)**2).mean()
+                    })
                 
                 # Log generated samples to W&B (optional)
-                if wandb.run is not None and samples is not None:
+                # if wandb.run is not None and samples is not None:
                     # We'll log just a few samples to avoid excessive data transfer
-                    n_examples = min(6, samples['original'].shape[0])
+                    # n_examples = min(6, samples['original'].shape[0])
                     
-                    for i in range(n_examples):
-                        save_path = os.path.join(output_dir, f"pairplot_generated_{i}.png")
-                        visualize_data(
-                            save_path, samples['original'][i], samples['generated'][i]
-                        )
-                        wandb.log({
-                            f"samples/generated_{i}": wandb.Image(save_path)
-                        })
+                    # for i in range(n_examples):
+                    #     save_path = os.path.join(output_dir, f"pairplot_generated_{i}.png")
+                    #     visualize_data(
+                    #         save_path, samples['original'][i], samples['generated'][i]
+                    #     )
+                    #     wandb.log({
+                    #         f"samples/generated_{i}": wandb.Image(save_path)
+                    #     })
                 
                 # Check if this is the best model so far
                 if eval_loss < self.best_loss:

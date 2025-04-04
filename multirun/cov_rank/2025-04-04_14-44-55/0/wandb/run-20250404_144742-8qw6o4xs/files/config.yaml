@@ -1,0 +1,128 @@
+_wandb:
+    value:
+        cli_version: 0.19.9
+        m: []
+        python_version: 3.11.11
+        t:
+            "1":
+                - 1
+                - 41
+                - 50
+                - 51
+                - 55
+            "2":
+                - 1
+                - 41
+                - 50
+                - 51
+                - 55
+            "3":
+                - 2
+                - 3
+                - 16
+                - 23
+                - 55
+                - 61
+                - 62
+            "4": 3.11.11
+            "5": 0.19.9
+            "8":
+                - 5
+            "12": 0.19.9
+            "13": linux-x86_64
+dataset:
+    value:
+        _target_: datasets.distribution_datasets.RankedNormalDataset
+        data_shape:
+            - 5
+        dim: 5
+        fixed_mu: 0
+        n_sets: 10000
+        rank: 5
+        seed: 42
+        set_size: 100
+device:
+    value: cuda
+encoder:
+    value:
+        _target_: encoder.encoders.DistributionEncoderGNN
+        fc_layers: 2
+        hidden_dim: 64
+        in_dim: 5
+        latent_dim: 16
+        layers: 2
+        set_size: 100
+experiment:
+    value:
+        batch_size: 64
+        hidden_dim: 64
+        latent_dim: 16
+        lr: 0.0002
+        noise_dim: 16
+        set_size: 100
+experiment_name:
+    value: cov_rank
+generator:
+    value:
+        _target_: generator.direct.DirectGenerator
+        loss_params:
+            n_projections: 100
+            p: 2
+        loss_type: swd
+        model:
+            _target_: layers.MLP
+            hidden_dim: 64
+            in_dims:
+                - 16
+                - 16
+            layers: 2
+            out_dim: 5
+        noise_dim: 16
+model:
+    value:
+        _target_: layers.MLP
+        hidden_dim: 64
+        in_dims:
+            - 16
+            - 16
+        layers: 2
+        out_dim: 5
+optimizer:
+    value:
+        _partial_: true
+        _target_: torch.optim.Adam
+        betas:
+            - 0.9
+            - 0.999
+        eps: 1e-08
+        lr: 0.0002
+        weight_decay: 0
+scheduler:
+    value:
+        _partial_: true
+        _target_: torch.optim.lr_scheduler.ConstantLR
+        factor: 1
+        total_iters: 1
+seed:
+    value: 42
+training:
+    value:
+        _target_: training.Trainer
+        early_stopping: true
+        eval_interval: 2
+        log_interval: 5
+        num_epochs: 100
+        patience: 5
+        save_interval: 10
+        use_tqdm: false
+wandb:
+    value:
+        _target_: wandb_utils.setup_wandb
+        entity: null
+        group: null
+        mode: online
+        name: null
+        notes: null
+        project: distribution-embeddings
+        save_code: true
+        tags: []

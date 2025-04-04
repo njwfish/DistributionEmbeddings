@@ -6,6 +6,59 @@ from torchvision import datasets, transforms
 from torchvision.datasets import MNIST
 
 
+class RankedNormalDataset(Dataset):
+    """dataset with fixed means + cov matrices of desired rank! :)"""
+
+    def __init__(
+        self,
+        n_sets: int = 10,
+        set_size: int = 100,
+        dim: int = 5,
+        data_shape: Tuple[int, ...] = (5,), 
+        rank: int = 2,
+        fixed_mu: Optional[np.ndarray] = None,
+        seed: Optional[int] = None,
+    ):
+        if seed is not None:
+            np.random.seed(seed)
+
+        self.n_sets = n_sets
+        self.set_size = set_size
+        self.dim = dim
+
+        self.mu = np.ones((n_sets, dim))*fixed_mu if fixed_mu is not None else np.random.randn(n_sets, dim)
+        self.cov = self.make_covariances(n_sets, dim, rank)
+        self.data = self.sample_all()
+
+    def make_covariances(self, n, d, r):
+        covs = []
+        for _ in range(n):
+            a = np.random.randn(d, r)  # d x r matrix
+            cov = a @ a.T  # rank-r covariance!
+            cov += 1e-3 * np.eye(d)
+            covs.append(cov)
+        return np.stack(covs)
+
+    def sample_all(self):
+        samples = []
+        for i in range(self.n_sets):
+            s = np.random.multivariate_normal(self.mu[i], self.cov[i], self.set_size)
+            samples.append(s)
+        return np.stack(samples)
+
+    def __len__(self):
+        return self.n_sets
+
+    def __getitem__(self, idx):
+        return {
+            'samples': torch.tensor(self.data[idx], dtype=torch.float),
+            'metadata': (
+                torch.tensor(self.mu[idx], dtype=torch.float),
+                torch.tensor(self.cov[idx], dtype=torch.float),
+            ),
+        }  # now with bundled metadata! 🎁
+
+
 class NormalDistributionDataset(Dataset):
     """Dataset for multivariate normal distributions."""
     
