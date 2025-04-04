@@ -6,3 +6,4 @@ eval_interval: 5
 early_stopping: true
 patience: 10
 use_tqdm: false 
+mean_loss_weight: 1.0

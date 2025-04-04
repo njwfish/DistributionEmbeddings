@@ -4,9 +4,9 @@
 defaults:
   - dataset: essential_genes
   - encoder: gnn
-  - model: direct_mlp
-  - generator: wasserstein
-  - optimizer: adam
+  - model: diffusion_mlp
+  - generator: ddpm
+  - optimizer: adamw
   - scheduler: cosine
   - training: default
   - wandb: default

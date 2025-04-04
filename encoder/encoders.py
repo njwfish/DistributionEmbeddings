@@ -12,6 +12,7 @@ class DistributionEncoder(nn.Module):
 
         self.latent_act = nn.SELU()
         self.encoder = None
+        self.mean_predictor = nn.Linear(latent_dim, in_dim, bias=True)
 
     def forward(self, x):
         enc = self.encoder(x)
@@ -20,6 +21,9 @@ class DistributionEncoder(nn.Module):
         # enc_mean = torch.median(enc, dim=1).values
         lat = self.latent_act(self.latent_proj(enc_mean))
         return lat
+    
+    def mean_predict(self, lat):
+        return self.mean_predictor(lat)
 
 class DistributionEncoderTx(DistributionEncoder):
     def __init__(self, in_dim, latent_dim, hidden_dim, set_size, layers=2, heads=4):

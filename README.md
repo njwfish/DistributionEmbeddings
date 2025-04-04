@@ -17,27 +17,18 @@ This repository contains implementation of Distribution Embeddings for various s
 │   ├── scheduler/               # Learning rate scheduler configurations
 │   ├── training/                # Training configurations
 │   ├── wandb/                   # Weights & Biases configurations
-│   ├── simple_distn_exp.yaml    # Configuration for simple distribution experiments
-│   ├── pubmed_nlp.yaml          # Configuration for PubMed NLP experiments
-│   ├── mnist_ddpm.yaml          # Configuration for MNIST with diffusion models
 │   └── essential_genes_exp.yaml # Configuration for essential genes experiments
 ├── datasets/                    # Dataset implementations
 │   ├── distribution_datasets.py # Statistical distribution datasets
-│   ├── mnist.py                 # MNIST dataset utilities
-│   ├── pubmed.py                # PubMed abstracts dataset
 │   └── essential_genes_dataset.py # Essential genes dataset
 ├── encoder/                     # Encoder models
-│   ├── encoders.py              # Various encoder implementations
-│   ├── nlp_encoders.py          # NLP-specific encoders (BERT)
-│   └── conv_gnn.py              # Graph convolutional network encoder
+│   └── encoders.py              # Various encoder implementations
 ├── generator/                   # Generator models and losses
 │   ├── losses.py                # Loss functions for generators
 │   ├── ddpm.py                  # Diffusion models
-│   ├── gpt2_generator.py        # GPT-2 based text generator
 │   └── direct.py                # Direct generator implementation
 ├── model/                       # Model architectures
-│   ├── gnn.py                   # Graph neural network models
-│   └── unet.py                  # U-Net architecture for diffusion models
+│   └── gnn.py                   # Graph neural network models
 ├── utils/                       # Utility functions
 │   ├── hash_utils.py            # Utilities for config hashing and output tracking
 │   ├── experiment_utils.py      # Experiment management utilities
@@ -97,10 +88,7 @@ python main.py
 python main.py training.num_epochs=200 optimizer.lr=0.001
 
 # Use a specific configuration file
-python main.py --config-name pubmed_nlp
-
-# Override nested parameters
-python main.py dataset.params.mean=0.0 dataset.params.std=1.0
+python main.py --config-name essential_genes_exp
 
 # Run multiple experiments with different parameters
 python main.py --multirun seed=42,43,44,45,46

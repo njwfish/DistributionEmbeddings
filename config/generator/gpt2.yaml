@@ -1,9 +1,0 @@
-# @package _global_.generator
-_target_: generator.gpt2_generator.GPT2Generator
-gpt2_model_name: ${experiment.gpt2_model_name}
-latent_dim: ${experiment.latent_dim}
-condition_dim: ${experiment.condition_dim}
-freeze_gpt2: ${experiment.freeze_gpt2}
-condition_method: ${experiment.condition_method}
-temperature: ${experiment.temperature}
-max_length: ${experiment.max_length} 
