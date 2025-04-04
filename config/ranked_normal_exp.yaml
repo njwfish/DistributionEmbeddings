@@ -3,7 +3,7 @@
 # Set default configurations
 defaults:
   - dataset: ranked_normal
-  - encoder: gnn
+  - encoder: tx
   - model: direct_mlp
   - generator: wasserstein
   - optimizer: adam
