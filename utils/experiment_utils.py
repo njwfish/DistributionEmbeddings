@@ -5,8 +5,10 @@ import yaml
 import torch
 import logging
 from utils.hash_utils import hash_config, find_matching_output_dir
-from omegaconf import OmegaConf, DictConfig
+from omegaconf import OmegaConf, DictConfig, ListConfig
 from typing import Dict, Any, Union, List, Optional, Tuple
+
+torch.serialization.add_safe_globals([ListConfig])
 
 logger = logging.getLogger(__name__)
 
@@ -296,11 +298,11 @@ def load_best_model(experiment_dir: str):
     if not os.path.exists(experiment_dir):
         raise ValueError(f"Experiment directory {experiment_dir} does not exist")
     
-    best_model_path = os.path.join(experiment_dir, "best_model.ckpt")
+    best_model_path = os.path.join(experiment_dir, "best_model.pt")
     if not os.path.exists(best_model_path):
         raise ValueError(f"No best model found in {experiment_dir}")
     
-    return torch.load(best_model_path, map_location=torch.device('cpu'))
+    return torch.load(best_model_path, map_location=torch.device('cpu'), weights_only=False)
 
 def compare_experiments(exp_dir1: str, exp_dir2: str) -> Dict[str, Any]:
     """

@@ -5,7 +5,7 @@ _target_: hydra_plugins.hydra_submitit_launcher.submitit_launcher.SlurmLauncher
 partition: ou_bcs_low
 gpus_per_node: 1
 cpus_per_task: 5
-mem_gb: 496
+mem_gb: 128
 timeout_min: 720
 
 # Submitit settings
@@ -16,4 +16,4 @@ tasks_per_node: 1
 max_num_timeout: 3
 additional_parameters:
   mail-type: END,FAIL
-  mail-user: njwfish@gmail.com  # Your email for notifications 
+  mail-user: ggowri@g.harvard.edu  # Your email for notifications 
