@@ -50,13 +50,12 @@ class RankedNormalDataset(Dataset):
         return self.n_sets
 
     def __getitem__(self, idx):
+        mu = torch.tensor(self.mu, dtype=torch.float)[idx]
+        cov = torch.tensor(self.cov, dtype=torch.float)[idx]
         return {
             'samples': torch.tensor(self.data[idx], dtype=torch.float),
-            'metadata': (
-                torch.tensor(self.mu[idx], dtype=torch.float),
-                torch.tensor(self.cov[idx], dtype=torch.float),
-            ),
-        }  # now with bundled metadata! 🎁
+            'metadata': [mu, cov]
+        }
 
 
 class NormalDistributionDataset(Dataset):

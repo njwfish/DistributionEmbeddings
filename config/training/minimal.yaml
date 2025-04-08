@@ -1,0 +1,8 @@
+_target_: minimal_training.MinimalTrainer
+num_epochs: 100
+log_interval: 1
+eval_interval: 10
+early_stopping: true
+patience: 10
+use_tqdm: true
+csv_logger: true

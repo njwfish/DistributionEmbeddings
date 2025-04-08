@@ -31,17 +31,17 @@ def main(cfg: DictConfig):
     if cfg.seed is not None:
         torch.manual_seed(cfg.seed)
         
-    # Initialize W&B
-    run = wandb.init(
-        project=cfg.wandb.project,
-        entity=cfg.wandb.entity,
-        config=OmegaConf.to_container(cfg, resolve=True),
-        mode=cfg.wandb.mode
-    )
+    # # Initialize W&B
+    # run = wandb.init(
+    #     project=cfg.wandb.project,
+    #     entity=cfg.wandb.entity,
+    #     config=OmegaConf.to_container(cfg, resolve=True),
+    #     mode=cfg.wandb.mode
+    # )
     
-    # Log config hash to W&B
-    if wandb.run is not None:
-        wandb.run.summary["config_hash"] = config_hash
+    # # Log config hash to W&B
+    # if wandb.run is not None:
+    #     wandb.run.summary["config_hash"] = config_hash
     
     try:
         # Create the dataset
@@ -75,7 +75,7 @@ def main(cfg: DictConfig):
             config=cfg,
         )
         
-        logger.info(f"Training completed. Best epoch: {stats['best_epoch']}")
+        # logger.info(f"Training completed. Best epoch: {stats['best_epoch']}")
                     
     
     finally:

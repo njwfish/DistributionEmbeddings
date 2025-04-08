@@ -8,8 +8,8 @@ defaults:
   - generator: wasserstein
   - optimizer: adam
   - scheduler: none
-  - training: fast
-  - wandb: default
+  - training: minimal
+  - wandb: disabled
   - _self_
 
 experiment:
