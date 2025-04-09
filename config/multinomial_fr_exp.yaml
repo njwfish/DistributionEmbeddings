@@ -24,7 +24,7 @@ experiment:
 # General settings
 seed: 42
 device: cuda
-experiment_name: multinomial
+experiment_name: multinomial_spike
 
 # Hydra-related settings
 hydra:

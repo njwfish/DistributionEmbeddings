@@ -153,7 +153,9 @@ class MultinomialDistributionDataset(Dataset):
         """
         if seed is not None:
             np.random.seed(seed)
-            
+
+        self.spike = spike
+
         # Generate or use provided parameters
         if custom_probs is None:
             self.probs = self.generate_params(n_sets, data_shape)
@@ -161,13 +163,11 @@ class MultinomialDistributionDataset(Dataset):
             self.probs = custom_probs
             
         self.n_per_multinomial = n_per_multinomial
-        self.spike = spike
             
         # Generate samples
         self.data = self.sample(self.probs, n_per_multinomial, n_sets, set_size, data_shape)
             
     def generate_params(self, n_sets, data_shape):
-        # uniform sampling from simplex via dirichlet :)
         dim = np.prod(data_shape)
         probs = np.random.dirichlet(alpha=np.ones(dim)*self.spike, size=n_sets)
         return probs.reshape(n_sets, *data_shape)
