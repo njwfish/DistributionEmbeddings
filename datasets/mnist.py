@@ -91,4 +91,77 @@ class MNISTMixedSetsDataset(Dataset):
         return {
             'samples': self.data[idx],  # Shape: [set_size, channels, height, width]
             'metadata': self.metadata[idx]  # Class information
-        } 
+        }
+
+class MNISTBernoulliDataset(Dataset):
+    # mnist sets with dirichlet-mixed 0s and 1s! :)
+    
+    def __init__(
+        self,
+        n_sets: int = 10,
+        set_size: int = 100,
+        root: str = './data',
+        train: bool = True,
+        download: bool = True,
+        seed: Optional[int] = None,
+        alpha: float = 1.0,  # dirichlet concentration
+        data_shape: Tuple[int, int, int] = (1, 28, 28),
+    ):
+        if seed is not None:
+            np.random.seed(seed)
+            torch.manual_seed(seed)
+        
+        self.n_sets = n_sets
+        self.set_size = set_size
+        self.alpha = alpha
+        self.data_shape = data_shape
+
+        # load mnist
+        transform = transforms.Compose([transforms.ToTensor()])
+        self.mnist = MNIST(root=root, train=train, download=download, transform=transform)
+        
+        # filter for digits 0 and 1 only
+        targets = torch.tensor(self.mnist.targets)
+        self.indices = {
+            0: torch.where(targets == 0)[0],
+            1: torch.where(targets == 1)[0],
+        }
+
+        # generate the sets!
+        self.data, self.metadata, self.prob = self.make_sets()
+    
+    def make_sets(self):
+        sets, metadata, probs = [], [], []
+        
+        for _ in range(self.n_sets):
+            # dirichlet sample for [p0, p1]
+            mix = np.random.dirichlet([self.alpha, self.alpha])
+            probs.append(mix.tolist())
+
+            # multinomial count from mixture
+            counts = np.random.multinomial(self.set_size, mix)
+
+            set_imgs, set_labels = [], []
+
+            for digit, count in zip([0, 1], counts):
+                idx = torch.randperm(len(self.indices[digit]))[:count]
+                imgs = self.mnist.data[self.indices[digit][idx]].float().unsqueeze(1) / 255.0
+                set_imgs.append(imgs)
+                set_labels += [digit] * count
+
+            sets.append(torch.cat(set_imgs, dim=0))
+            metadata.append(set_labels)
+
+        return torch.stack(sets), metadata, probs
+
+    def __len__(self):
+        return self.n_sets
+    
+    def fisher_rao_distance(self, probs):
+        return np.arccos(np.sqrt(probs[:, None, :] * probs[None, :, :]).sum(axis=2))
+
+    def __getitem__(self, idx):
+        return {
+            'samples': self.data[idx],       # shape: [set_size, 1, 28, 28]
+            'metadata': self.metadata[idx],  # list of 0s and 1s
+        }

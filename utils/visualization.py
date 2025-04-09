@@ -46,7 +46,7 @@ def visualize_data(save_path, real, generated, max_features_to_plot=10):
             plt.savefig(save_path)
             plt.close()
 
-    elif len(real.shape) == 3: # [set_size, channels, height, width]
+    elif len(real.shape) == 4: # [set_size, channels, height, width]
 
         # Create grids of real and generated images
         real_grid = make_grid(real*-1 + 1, nrow=10)
