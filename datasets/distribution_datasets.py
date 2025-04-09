@@ -138,6 +138,7 @@ class MultinomialDistributionDataset(Dataset):
         set_size: int = 100,
         data_shape: Tuple[int, ...] = (5,),
         n_per_multinomial: int = 10,
+        spike: float = 1.,
         custom_probs: Optional[np.ndarray] = None,
         seed: Optional[int] = None,
     ):
@@ -160,16 +161,17 @@ class MultinomialDistributionDataset(Dataset):
             self.probs = custom_probs
             
         self.n_per_multinomial = n_per_multinomial
+        self.spike = spike
             
         # Generate samples
         self.data = self.sample(self.probs, n_per_multinomial, n_sets, set_size, data_shape)
-        
-    
+            
     def generate_params(self, n_sets, data_shape):
-        # Generate probability vectors for each set
-        probs = np.random.rand(n_sets, *data_shape)
-        probs = probs / np.sum(probs, axis=1, keepdims=True)
-        return probs.squeeze()
+        # uniform sampling from simplex via dirichlet :)
+        dim = np.prod(data_shape)
+        probs = np.random.dirichlet(alpha=np.ones(dim)*self.spike, size=n_sets)
+        return probs.reshape(n_sets, *data_shape)
+
     
     def sample(self, probs, n_per_multinomial, n_sets, set_size, data_shape):
         if probs.ndim == 1:

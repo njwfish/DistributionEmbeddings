@@ -3,4 +3,5 @@ n_sets: 10000
 set_size: 100
 n_per_multinomial: 20
 seed: ${seed} 
-data_shape: [5]
+data_shape: [2]
+spike: 1.0
