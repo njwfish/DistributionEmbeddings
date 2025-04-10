@@ -1,5 +1,5 @@
 _target_: training.Trainer
-num_epochs: 100
+num_epochs: 50
 log_interval: 5
 save_interval: 5
 eval_interval: 5
