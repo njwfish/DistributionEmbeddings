@@ -165,3 +165,81 @@ class MNISTBernoulliDataset(Dataset):
             'samples': self.data[idx],       # shape: [set_size, 1, 28, 28]
             'metadata': self.metadata[idx],  # list of 0s and 1s
         }
+
+class MNISTMultinomialDataset(Dataset):
+    # mnist sets with dirichlet
+
+    def __init__(
+        self,
+        n_sets: int = 10,
+        set_size: int = 100,
+        root: str = './data',
+        train: bool = True,
+        download: bool = True,
+        seed: Optional[int] = None,
+        alpha: float = 1.0,
+        data_shape: Tuple[int, int, int] = (1, 28, 28),
+        n_classes: int = 10,
+        custom_probs: Optional[List[List[float]]] = None,  # optional override! 
+    ):
+        if seed is not None:
+            np.random.seed(seed)
+            torch.manual_seed(seed)
+
+        self.n_sets = n_sets
+        self.set_size = set_size
+        self.alpha = alpha
+        self.data_shape = data_shape
+        self.n_classes = n_classes
+        self.custom_probs = custom_probs
+
+        transform = transforms.Compose([transforms.ToTensor()])
+        self.mnist = MNIST(root=root, train=train, download=download, transform=transform)
+
+        targets = torch.tensor(self.mnist.targets)
+        self.indices = {
+            digit: torch.where(targets == digit)[0]
+            for digit in range(self.n_classes)
+        }
+
+        self.data, self.metadata, self.prob = self.make_sets()
+
+    def make_sets(self):
+        sets, metadata, probs = [], [], []
+
+        for i in range(self.n_sets):
+            if self.custom_probs is not None:
+                mix = np.array(self.custom_probs[i])
+                assert len(mix) == self.n_classes, "bad prob vector!"
+                assert np.isclose(mix.sum(), 1.0), "probs must sum to 1 :)"
+            else:
+                mix = np.random.dirichlet([self.alpha] * self.n_classes)
+
+            probs.append(mix.tolist())
+            counts = np.random.multinomial(self.set_size, mix)
+
+            set_imgs, set_labels = [], []
+
+            for digit, count in enumerate(counts):
+                idx = torch.randperm(len(self.indices[digit]))[:count]
+                imgs = self.mnist.data[self.indices[digit][idx]].float().unsqueeze(1) / 255.0
+                set_imgs.append(imgs)
+                set_labels += [digit] * count
+
+            sets.append(torch.cat(set_imgs, dim=0))
+            metadata.append(set_labels)
+
+        return torch.stack(sets), metadata, probs
+
+    def __len__(self):
+        return self.n_sets
+
+    def fisher_rao_distance(self, probs):
+        return np.arccos(np.sqrt(probs[:, None, :] * probs[None, :, :]).sum(axis=2))
+
+    def __getitem__(self, idx):
+        return {
+            'samples': self.data[idx],       # [set_size, 1, 28, 28]
+            'metadata': self.metadata[idx],  # digit labels 🎯
+            'probs': self.prob[idx],         # mix used! 🍭
+        }
