@@ -14,8 +14,8 @@ class NormalDistributionDataset(Dataset):
         n_sets: int = 10,
         set_size: int = 100,
         data_shape: Tuple[int, ...] = (5,),
-        custom_mu: Optional[np.ndarray] = None,
-        custom_var: Optional[np.ndarray] = None,
+        prior: str = 'normal',
+        prior_params: Tuple[float, float] = (0, 1),
         seed: Optional[int] = None,
     ):
         """
@@ -23,27 +23,27 @@ class NormalDistributionDataset(Dataset):
             n_sets: Number of parameter sets to generate
             set_size: Number of samples per parameter set
             data_shape: Shape of each sample
-            custom_mu: Optional custom mean parameters
-            custom_var: Optional custom variance parameters
+            prior: Prior distribution for the mean
+            prior_params: Parameters for the prior distribution
             seed: Random seed for reproducibility
         """
         if seed is not None:
             np.random.seed(seed)
             
         # Generate or use provided parameters
-        if custom_mu is None or custom_var is None:
-            self.mu, self.var = self.generate_params(n_sets, data_shape)
-        else:
-            self.mu = custom_mu
-            self.var = custom_var
-            
+        self.mu, self.var = self.generate_params(n_sets, data_shape, prior, prior_params)
+
         # Generate samples
         self.data = self.sample(self.mu, self.var, n_sets, set_size, data_shape)
         
     
-    def generate_params(self, n_sets, data_shape):
-        mu = np.random.randn(n_sets, *data_shape)
-        var = np.random.randn(n_sets, *data_shape)**2
+    def generate_params(self, n_sets, data_shape, prior, prior_params):
+        if prior == 'normal':
+            mu = np.random.normal(prior_params[0], prior_params[1], (n_sets, *data_shape))
+            var = np.random.normal(prior_params[0], prior_params[1], (n_sets, *data_shape))**2
+        elif prior == 'uniform':
+            mu = np.random.uniform(prior_params[0], prior_params[1], (n_sets, *data_shape))
+            var = np.random.uniform(0, prior_params[1], (n_sets, *data_shape))
         return mu.squeeze(), var.squeeze()
     
     def sample(self, mu, var, n_sets, set_size, data_shape):
@@ -55,12 +55,23 @@ class NormalDistributionDataset(Dataset):
             raise ValueError("mu and var must have the same number of dimensions")
     
     def fisher_rao_distance(self, mu, var):
+        sigma = np.sqrt(var)
+
         diff_mu = (mu[:, None, :] - mu[None, :, :])**2
-        diff_var = (var[:, None, :] - var[None, :, :])**2
-        sum_var = (var[:, None, :] + var[None, :, :])**2
-        return np.linalg.norm(
-            np.arctanh((diff_mu + 2 * diff_var)/(diff_mu + 2 * sum_var)), axis=2
-        )
+        diff_sigma = (sigma[:, None, :] - sigma[None, :, :])**2
+
+        sigma_prod = sigma[:, None, :] * sigma[None, :, :]
+
+        cosh_arg = 1 + (diff_mu + diff_sigma) / (2 * sigma_prod)
+        dist = np.sqrt(2) * np.arccosh(cosh_arg)
+
+        return np.linalg.norm(dist, axis=2)
+    
+    def wasserstein_distance(self,mu, var):
+        mean_dist = np.linalg.norm(mu[:, None, :] - mu[None, :, :], axis=2)
+        var_matrices = np.eye(var.shape[1])[None, :] * var[:, None]
+        var_dist = np.linalg.trace(var_matrices[None, :, :] + var_matrices[:, None, :] - 2 * np.sqrt(np.sqrt(var_matrices[None, :, :]) @ var_matrices[:, None, :] @ np.sqrt(var_matrices[None, :, :])))
+        return mean_dist + var_dist
     
     def __len__(self):
         return self.data.shape[0]

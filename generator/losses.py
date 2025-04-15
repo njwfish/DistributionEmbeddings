@@ -104,9 +104,7 @@ def sinkhorn(
     Y,
     reg = 1.,
     max_iter=50,
-    stop_thresh=1e-9,
     eps = 1e-16,
-    warn=True,
     p = 2
 ):
     """
@@ -134,13 +132,11 @@ def sinkhorn(
     #reg = 0.1 * torch.median(M)
 
     # Initialize dual vectors
-    u = torch.ones(n, 1, device=device, dtype=dtype) / n
-    v = torch.ones(m, 1, device=device, dtype=dtype) / m
+    u = torch.ones(n, 1, device=device, dtype=dtype)
+    v = torch.ones(m, 1, device=device, dtype=dtype)
 
     # Compute kernel matrix with numerical stability
     K = torch.exp(-M / (reg + eps))  # (n, m)
-    # Scaling vector precomputation
-    Kp = (1 / a) * K  # (n, 1) * (n, m) = (n, m)
 
     # Sinkhorn iterations
     for ii in range(max_iter):
@@ -148,9 +144,8 @@ def sinkhorn(
         # vprev = v.clone()
 
         # Update v then u
-        Ktu = torch.mm(K.t(), u)  # (m, 1)
-        v = b / (Ktu + eps)  # (m, 1)
-        u = 1.0 / (torch.mm(Kp, v) + eps)  # (n, 1)
+        u = a / (torch.mm(K, v) + eps)  # (m, 1)
+        v = b / (torch.mm(K.t(), u) + eps)  # (n, 1)
 
         # have to comment this because we want to
         # vmap which cannot be done through control flow
@@ -166,7 +161,7 @@ def sinkhorn(
         #    break
 
     # Compute transport plan and loss
-    P = u * K * v.t()  # (n, m)
-    loss = torch.sum(P * M)
-   
+    P = torch.diag(u.flatten()) @ K @ torch.diag(v.flatten())
+    loss = torch.trace(M.T @ P)
+    
     return loss.squeeze()

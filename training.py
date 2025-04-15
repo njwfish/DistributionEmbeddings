@@ -321,7 +321,7 @@ class Trainer:
         
         return output_dir, stats
     
-    def _evaluate(self, encoder, generator, dataloader, device):
+    def _evaluate(self, encoder, generator, dataloader, device, num_eval_batches=10):
         """Run evaluation and return average loss."""
         encoder.eval()
         generator.model.eval()
@@ -331,6 +331,8 @@ class Trainer:
         
         with torch.no_grad():
             for batch in dataloader:
+                if num_eval_batches is not None and num_batches >= num_eval_batches:
+                    break
                 # Handle samples which can be either a tensor or a dictionary
                 if isinstance(batch['samples'], torch.Tensor):
                     samples = batch['samples'].to(device)
