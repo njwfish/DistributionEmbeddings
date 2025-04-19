@@ -3,5 +3,5 @@ model: ${model}  # This will be instantiated first
 loss_type: sinkhorn
 noise_dim: ${experiment.noise_dim} 
 loss_params:
-  reg: 10.0
+  reg: 1.0
   p: 2

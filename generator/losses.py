@@ -121,8 +121,8 @@ def sinkhorn(
     # Create uniform distributions
     n = X.shape[0]
     m = Y.shape[0]
-    a = torch.ones(n, 1, device=device, dtype=dtype) / n
-    b = torch.ones(m, 1, device=device, dtype=dtype) / m
+    a = torch.ones(n, 1, device=device, dtype=dtype) 
+    b = torch.ones(m, 1, device=device, dtype=dtype) 
 
     # Compute pairwise cost matrix (squared Euclidean)
 
@@ -130,10 +130,6 @@ def sinkhorn(
     #M = pairwise_cosine_distance(X,Y)
     #reg = 0.1 * torch.median(M)
     #reg = 0.1 * torch.median(M)
-
-    # Initialize dual vectors
-    u = torch.ones(n, 1, device=device, dtype=dtype)
-    v = torch.ones(m, 1, device=device, dtype=dtype)
 
     # Compute kernel matrix with numerical stability
     K = torch.exp(-M / (reg + eps))  # (n, m)
@@ -144,8 +140,8 @@ def sinkhorn(
         # vprev = v.clone()
 
         # Update v then u
-        u = a / (torch.mm(K, v) + eps)  # (m, 1)
-        v = b / (torch.mm(K.t(), u) + eps)  # (n, 1)
+        a = 1 / (torch.mm(K, b) + eps)  # (m, 1)
+        b = 1 / (torch.mm(K.t(), a) + eps)  # (n, 1)
 
         # have to comment this because we want to
         # vmap which cannot be done through control flow
@@ -161,7 +157,20 @@ def sinkhorn(
         #    break
 
     # Compute transport plan and loss
-    P = torch.diag(u.flatten()) @ K @ torch.diag(v.flatten())
-    loss = torch.trace(M.T @ P)
+    loss = torch.einsum('ij,i,j,ij->', M, a.flatten(), b.flatten(), K)
     
     return loss.squeeze()
+
+def sinkhorn_loss(X, Y, reg=1., max_iter=50, eps=1e-16, p=2):
+    """
+    Compute Sinkhorn loss between two sets of samples.
+    
+    Args:
+        X: (n, d) tensor of source samples
+        Y: (m, d) tensor of target samples
+        reg: regularization parameter
+        max_iter: maximum number of Sinkhorn iterations
+        eps: small constant for numerical stability
+        p: power parameter for the distance metric
+    """
+    return 2 * sinkhorn(X, Y, reg, max_iter, eps, p) - sinkhorn(X, X, reg, max_iter, eps, p) - sinkhorn(Y, Y, reg, max_iter, eps, p)
