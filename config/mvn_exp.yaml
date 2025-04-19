@@ -1,0 +1,43 @@
+# @package _global_
+
+# Set default configurations
+defaults:
+  - dataset: mvn
+  - encoder: gnn
+  - model: diffusion_mlp
+  - generator: ddpm
+  - optimizer: adam
+  - scheduler: none
+  - training: default
+  - wandb: default
+  - override hydra/launcher: slurm
+  - _self_
+
+experiment:
+  latent_dim: 16
+  hidden_dim: 64
+  noise_dim: 16
+  set_size: 500
+  batch_size: 256
+  lr: 2e-4
+
+# General settings
+seed: 42
+device: cuda
+experiment_name: mvn_exp
+
+# Hydra-related settings
+hydra:
+  run:
+    dir: outputs/${experiment_name}/${now:%Y-%m-%d_%H-%M-%S}
+  sweep:
+    dir: multirun/${experiment_name}/${now:%Y-%m-%d_%H-%M-%S}
+    subdir: ${hydra.job.num}
+  job:
+    config:
+      override_dirname:
+        exclude_keys:
+          - seed
+          - device
+          - hydra
+          - experiment_name 

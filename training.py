@@ -405,7 +405,7 @@ class Trainer:
                     latent = encoder(samples)
                     
                     # Generate new samples
-                    generated = generator.sample(latent, num_samples=num_sets, return_texts=True)
+                    generated = generator.sample(latent, num_samples=set_size, return_texts=True)
                     
                     if isinstance(generated, tuple):
                         # If generator returns both token ids and decoded texts

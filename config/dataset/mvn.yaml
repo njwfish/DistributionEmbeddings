@@ -1,0 +1,8 @@
+_target_: datasets.distribution_datasets.MultivariateNormalDistributionDataset
+n_sets: 10000
+set_size: 500
+data_shape: [2]
+seed: ${seed} 
+prior_mu: [0, 1]
+prior_cov_df: 10
+prior_cov_scale: 1

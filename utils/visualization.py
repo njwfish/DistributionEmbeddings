@@ -12,7 +12,21 @@ def visualize_data(save_path, real, generated, max_features_to_plot=10):
         generated_flat = generated.numpy()
         _, features = real.shape
 
-        if features <= max_features_to_plot:
+        if features == 1:
+            # create histogram of the original and generated data
+            plt.hist(original_flat, bins=20, alpha=0.5, label='Original')
+            plt.hist(generated_flat, bins=20, alpha=0.5, label='Generated')
+            plt.legend()
+            plt.savefig(save_path)
+            plt.close()
+        elif features == 2:
+            # scatter plot the original and generated data
+            plt.scatter(original_flat[:, 0], original_flat[:, 1], label='Original')
+            plt.scatter(generated_flat[:, 0], generated_flat[:, 1], label='Generated')
+            plt.legend()
+            plt.savefig(save_path)
+            plt.close()            
+        elif features <= max_features_to_plot:
             # Create a pairplot of the original and generated data
             # save to outputs config directory
             df = pd.DataFrame(np.concatenate([original_flat, generated_flat], axis=0))

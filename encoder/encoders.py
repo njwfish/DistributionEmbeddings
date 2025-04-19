@@ -116,3 +116,42 @@ class DistributionEncoderResNet(DistributionEncoder):
         # Final projection to latent space
         lat = self.latent_act(self.latent_proj(enc_mean))
         return lat
+
+class DistributionEncoderResNetTx(DistributionEncoder):
+    def __init__(self, in_dim, latent_dim, hidden_dim, set_size, layers=2, heads=4, fc_layers=2, norm=True):
+        super().__init__(in_dim, latent_dim, hidden_dim, set_size)
+        
+        self.input_projection = MLP(in_dim, hidden_dim, hidden_dim, fc_layers)
+        self.pooled_layers = nn.ModuleList([
+            SelfAttention(hidden_dim, heads, hidden_dim, hidden_dim, fc_layers) 
+            for _ in range(layers)
+        ])
+
+        self.input_projections = nn.ModuleList([
+            nn.Linear(in_dim, hidden_dim) for _ in range(layers + 1)
+        ])
+        
+        self.layer_norms = nn.ModuleList([
+            nn.LayerNorm(hidden_dim) for _ in range(layers)
+        ])
+
+        self.encoder = None
+        self.norm = norm
+        
+    def forward(self, x):
+        x = self.input_projection(x)
+
+        for i, (layer, norm, input_proj) in enumerate(zip(self.pooled_layers, self.layer_norms, self.input_projections)):
+            x = layer(x)
+            x = x + input_proj(x)
+            if self.norm:
+                x = norm(x)
+
+        enc_mean = torch.mean(x, dim=1)
+        lat = self.latent_act(self.latent_proj(enc_mean))
+        return lat
+        
+        
+        
+        
+        

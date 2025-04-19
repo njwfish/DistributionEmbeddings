@@ -1,0 +1,6 @@
+_target_: model.cvae.SimpleVAE
+in_dim: ${dataset.data_shape[0]}
+latent_dim: ${experiment.latent_dim}
+hidden_dim: ${experiment.hidden_dim}
+vae_latent_dim: ${experiment.latent_dim}
+fc_layers: 4
