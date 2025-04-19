@@ -1,0 +1,3 @@
+_target_: mixer.mixer.SetMixer
+k: ${experiment.n_classes}
+alpha: 1.0

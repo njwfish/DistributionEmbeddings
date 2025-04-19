@@ -2,10 +2,10 @@
 
 # Set default configurations
 defaults:
-  - dataset: normal
-  - encoder: gnn
-  - model: direct_mlp
-  - generator: wasserstein
+  - dataset: mnist_bernoulli
+  - encoder: conv_gnn  # Use the ConvDistributionEncoder for DDPM
+  - model: context_unet  # Use the context_unet model for DDPM
+  - generator: ddpm  # Use the DDPM generator
   - optimizer: adam
   - scheduler: none
   - training: default
@@ -14,17 +14,18 @@ defaults:
   - _self_
 
 experiment:
-  latent_dim: 16
-  hidden_dim: 64
-  noise_dim: 16
-  set_size: 100
-  batch_size: 256
-  lr: 2e-4
+  name: mnist_bernoulli
+  latent_dim: 16  # Dimension of latent space for the distribution encoder
+  hidden_dim: 64  # Hidden dimension for neural networks
+  noise_dim: 16  # Noise dimension for generation
+  set_size: 100  # Size of each set of MNIST digits
+  batch_size: 8  # Batch size for training
+  lr: 1e-4  # Learning rate
 
 # General settings
 seed: 42
 device: cuda
-experiment_name: simple_exp
+experiment_name: mnist_bernoulli
 
 # Hydra-related settings
 hydra:

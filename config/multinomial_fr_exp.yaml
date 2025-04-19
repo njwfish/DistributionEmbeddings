@@ -2,10 +2,10 @@
 
 # Set default configurations
 defaults:
-  - dataset: normal
-  - encoder: gnn
-  - model: direct_mlp
-  - generator: wasserstein
+  - dataset: multinomial
+  - encoder: tx
+  - model: diffusion_mlp
+  - generator: ddpm
   - optimizer: adam
   - scheduler: none
   - training: default
@@ -18,13 +18,13 @@ experiment:
   hidden_dim: 64
   noise_dim: 16
   set_size: 100
-  batch_size: 256
+  batch_size: 64
   lr: 2e-4
 
 # General settings
 seed: 42
 device: cuda
-experiment_name: simple_exp
+experiment_name: multinomial_spike
 
 # Hydra-related settings
 hydra:

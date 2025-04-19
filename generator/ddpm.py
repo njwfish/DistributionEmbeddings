@@ -92,7 +92,7 @@ class DDPM(nn.Module):
             indices = torch.randperm(x.shape[1])[:self.subsample_indices].to(x.device)
             # return MSE between added noise, and our predicted noise
             return self.loss_mse(
-                noise[:, indices], self.model(x_t, c, _ts[:, None] / self.n_T, node_indices=indices)
+                noise[:, indices], self.model(x_t, c, _ts[:, None] / self.n_T, subsample_indices=indices)
             )
         else:
             # return MSE between added noise, and our predicted noise
@@ -130,7 +130,7 @@ class DDPM(nn.Module):
                     node_chunks = np.array_split(np.arange(num_nodes), self.subsample_indices)
                     eps = torch.zeros_like(x)
                     for j in node_chunks:
-                        eps[:, j] = self.model(x, context, t_is, node_indices=torch.tensor(j).to(device))
+                        eps[:, j] = self.model(x, context, t_is, subsample_indices=torch.tensor(j).to(device))
                 else:
                     eps = self.model(x, context, t_is)  
 

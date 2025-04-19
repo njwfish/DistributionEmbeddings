@@ -45,7 +45,21 @@ def main(cfg: DictConfig):
     try:
         # Create the dataset
         dataset = hydra.utils.instantiate(cfg.dataset)
-        dataloader = DataLoader(dataset, batch_size=cfg.experiment.batch_size, shuffle=True)
+
+        mixer = hydra.utils.instantiate(cfg.mixer)
+
+        # Improved DataLoader with parallel workers and pinned memory
+        num_workers = min(8, os.cpu_count() or 4)  # Use at most 8 workers or available CPU cores
+        dataloader = DataLoader(
+            dataset, 
+            batch_size=cfg.experiment.batch_size, 
+            shuffle=True,
+            num_workers=num_workers,  # Parallel data loading
+            pin_memory=True,  # Pin memory for faster data transfer to GPU
+            persistent_workers=True if num_workers > 0 else False,  # Keep workers alive between iterations
+            collate_fn=mixer.collate_fn if mixer is not None else None
+        )
+        
         
         # Create encoder
         encoder = hydra.utils.instantiate(cfg.encoder)

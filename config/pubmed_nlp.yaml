@@ -36,6 +36,10 @@ experiment:
   condition_method: "prefix"
   temperature: 0.8
   max_length: 128
+
+training:
+  eval_interval: 1  # Evaluate every 500 steps
+  save_interval: 1  # Save checkpoint every 1000 steps
   
 # General settings
 seed: 42

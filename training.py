@@ -20,6 +20,7 @@ class Trainer:
         early_stopping=True,
         patience=10,
         use_tqdm=True,
+        mask_context_prob=0.0
     ):
         """
         Initialize the trainer.
@@ -40,6 +41,7 @@ class Trainer:
         self.early_stopping = early_stopping
         self.patience = patience
         self.use_tqdm = use_tqdm
+        self.mask_context_prob = mask_context_prob
         
         self.logger = logging.getLogger(__name__)
         self.best_loss = float('inf')
@@ -102,7 +104,8 @@ class Trainer:
             encoder.load_state_dict(checkpoint['encoder_state_dict'])
             generator.model.load_state_dict(checkpoint['generator_state_dict'])
             optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-            scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+            if 'scheduler_state_dict' in checkpoint:
+                scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
             start_epoch = checkpoint['epoch']
             
             # Log resuming to W&B
@@ -131,6 +134,10 @@ class Trainer:
                 if isinstance(batch['samples'], torch.Tensor):
                     samples = batch['samples'].to(device)
                     latent = encoder(samples)  # latent is num samples x num sets x latent dim
+                    
+                    if self.mask_context_prob > 0:
+                        context_mask = torch.bernoulli(torch.zeros(latent.shape[0])+self.mask_context_prob).to(latent.device)
+                        latent = latent * context_mask[:, None]
                     loss = generator.loss(samples.view(-1, *samples.shape[2:]), latent)
                 else:
                     # For dictionary samples (like PubMed dataset), move tensors to device
@@ -143,7 +150,9 @@ class Trainer:
 
                     # Encode samples to latent space
                     latent = encoder(samples)
-                    
+                    if self.mask_context_prob > 0:
+                        context_mask = torch.bernoulli(torch.zeros(latent.shape[0])+self.mask_context_prob).to(latent.device)
+                        latent = latent * context_mask
                     # Calculate loss
                     loss = generator.loss(samples, latent)
                 
@@ -320,7 +329,7 @@ class Trainer:
         
         return output_dir, stats
     
-    def _evaluate(self, encoder, generator, dataloader, device):
+    def _evaluate(self, encoder, generator, dataloader, device, num_eval_batches=10):
         """Run evaluation and return average loss."""
         encoder.eval()
         generator.model.eval()
@@ -330,6 +339,8 @@ class Trainer:
         
         with torch.no_grad():
             for batch in dataloader:
+                if num_eval_batches is not None and num_batches >= num_eval_batches:
+                    break
                 # Handle samples which can be either a tensor or a dictionary
                 if isinstance(batch['samples'], torch.Tensor):
                     samples = batch['samples'].to(device)
@@ -402,7 +413,7 @@ class Trainer:
                     latent = encoder(samples)
                     
                     # Generate new samples
-                    generated = generator.sample(latent, num_samples=num_sets, return_texts=True)
+                    generated = generator.sample(latent, num_samples=set_size, return_texts=True)
                     
                     if isinstance(generated, tuple):
                         # If generator returns both token ids and decoded texts

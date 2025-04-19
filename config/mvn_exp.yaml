@@ -2,10 +2,10 @@
 
 # Set default configurations
 defaults:
-  - dataset: normal
+  - dataset: mvn
   - encoder: gnn
-  - model: direct_mlp
-  - generator: wasserstein
+  - model: diffusion_mlp
+  - generator: ddpm
   - optimizer: adam
   - scheduler: none
   - training: default
@@ -17,14 +17,14 @@ experiment:
   latent_dim: 16
   hidden_dim: 64
   noise_dim: 16
-  set_size: 100
+  set_size: 500
   batch_size: 256
   lr: 2e-4
 
 # General settings
 seed: 42
 device: cuda
-experiment_name: simple_exp
+experiment_name: mvn_exp
 
 # Hydra-related settings
 hydra:
