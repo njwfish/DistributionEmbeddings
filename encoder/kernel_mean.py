@@ -16,13 +16,12 @@ class KMEEncoder(nn.Module):
 
         batch, set_size, N_dims = x.shape
 
-        # sample random weights for RFF (new for each forward pass!)
+        # RFF 
         if self.seed is not None:
             torch.manual_seed(self.seed)
         scale = 1.0 / self.gamma
         W = torch.randn(N_dims, self.d, device=x.device) * scale  # (N_dims, d)
 
-        # project + apply RFFs
         XW = torch.matmul(x, W)  # (batch, set_size, d)
         cos = torch.cos(XW)
         sin = torch.sin(XW)
