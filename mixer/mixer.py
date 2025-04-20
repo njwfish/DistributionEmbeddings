@@ -138,10 +138,11 @@ def mix_batch_sets(
             num_samples=mixed_set_size,
             replacement=replacement
         )
+
         source_point_indices = torch.randint(
             0, set_size, 
-            (n_mixed_sets, mixed_set_size),
-            device=device
+            size=(n_mixed_sets, mixed_set_size),
+            device=device,
         )
         
         # Gather points using a single indexing operation
@@ -323,6 +324,19 @@ class SetMixer:
             return self(stacked)
         else:
             raise ValueError(f"Unsupported batch type: {type(batch[0])}")
+        
+    def prescribed_mixing(self, batch_data, mix_probs):
+
+        return mix_batch_sets(
+            batch_data, 
+            mix_probs,
+            mixed_set_size=self.mixed_set_size,
+            n_mixed_sets=self.n_mixed_sets,
+            replacement=self.replacement,
+            k=self.k)
+
+
+
 
 def test_set_mixer():
     """Test the SetMixer transform."""
