@@ -282,7 +282,9 @@ class MultivariateNormalDistributionDataset(Dataset):
     
     def __getitem__(self, idx):
         return {
-            'samples': torch.tensor(self.data[idx], dtype=torch.float)
+            'samples': torch.tensor(self.data[idx], dtype=torch.float),
+            'mean': torch.tensor(self.mu[idx], dtype=torch.float),
+            'cov': torch.tensor(self.cov[idx], dtype=torch.float)
         }
 
 class GaussianMixtureModelDataset(Dataset):

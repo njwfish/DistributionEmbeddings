@@ -113,6 +113,9 @@ def mix_batch_sets(
                     mixed_data[key] = value
             else:
                 mixed_data[key] = value
+        
+        # add weights to mixed_data by indexing into mix_probs
+        mixed_data['weights'] = mix_probs[source_set_indices]
                 
         return mixed_data
         

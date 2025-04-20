@@ -11,6 +11,7 @@ defaults:
   - training: default
   - wandb: default
   - override hydra/launcher: slurm
+  - mixer: none
   - _self_
 
 experiment:

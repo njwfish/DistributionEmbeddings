@@ -2,7 +2,7 @@
 
 # Set default configurations
 defaults:
-  - dataset: gmm
+  - dataset: mvn
   - encoder: gnn
   - model: diffusion_mlp
   - generator: ddpm
@@ -10,6 +10,7 @@ defaults:
   - scheduler: none
   - training: default
   - wandb: default
+  - mixer: dirichlet_k
   - override hydra/launcher: slurm
   - _self_
 
@@ -19,6 +20,7 @@ experiment:
   noise_dim: 32
   set_size: 500
   batch_size: 256
+  n_mix: 3
   lr: 2e-4
 
 # General settings

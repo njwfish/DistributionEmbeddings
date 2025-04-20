@@ -10,6 +10,7 @@ defaults:
   - scheduler: cosine
   - training: default
   - wandb: default
+  - mixer: none
   - override hydra/launcher: slurm
   - _self_
 

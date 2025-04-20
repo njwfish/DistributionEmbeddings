@@ -5,4 +5,4 @@ train: true
 download: true
 seed: ${seed} 
 data_shape: [1, 28, 28]
-n_classes: ${experiment.n_classes}
+n_classes: ${experiment.n_mix}

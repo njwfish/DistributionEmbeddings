@@ -59,25 +59,29 @@ class MNISTDataset(SetDataset):
     def generate_pure_sets(self):
         """Generate sets with one digit class per set."""
         # Group indices by label
-        label_to_indices = {i: torch.where(torch.tensor(self.mnist.targets) == i)[0] for i in range(10)}
+        label_to_indices = {i: torch.where(self.mnist.targets == i)[0] for i in range(10)}
         
         sets = []
         metadata = []
         
         # Create one set for each digit (0-9)
         for digit in range(self.n_classes):
-            for _ in range(self.n_sets):
+            for _ in range(self.n_sets // self.n_classes):
                 # Sample set_size images from this class
                 indices = torch.randperm(len(label_to_indices[digit]))[:self.set_size]
                 images = self.mnist.data[label_to_indices[digit][indices]].float().unsqueeze(1) / 255.0
                 
                 sets.append(images)
                 metadata.append(digit)
+
+        sets = torch.stack(sets).float()
+        metadata = torch.tensor(metadata)
+        self.n_sets = sets.shape[0]
         
-        return torch.stack(sets).float(), metadata
+        return sets, metadata
     
     def __len__(self):
-        return self.n_sets  # 10 sets, one for each digit
+        return self.n_sets 
     
     def __getitem__(self, idx):
         return {

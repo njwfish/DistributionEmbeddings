@@ -21,8 +21,7 @@ experiment:
   noise_dim: 16  # Noise dimension for generation
   set_size: 100  # Size of each set of MNIST digits
   batch_size: 10  # Batch size for training
-  n_classes: 3  # Number of mixtures
-  n_mixed_sets: 100  # Number of mixed sets
+  n_mix: 3  # Number of mixtures
   lr: 1e-4  # Learning rate
 
 # General settings
