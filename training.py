@@ -366,7 +366,7 @@ class Trainer:
         
         return total_loss / num_batches
     
-    def generate_samples(self, encoder, generator, dataloader, num_samples=100, device=None):
+    def generate_samples(self, encoder, generator, dataloader, num_samples=None, device=None):
         """Generate samples using the trained model."""
         if device is None:
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -382,6 +382,9 @@ class Trainer:
                 # Handle samples which can be either a tensor or a dictionary
                 if isinstance(batch['samples'], torch.Tensor):
                     samples = batch['samples'].to(device)
+                    batch_size, set_size, *data_shape = samples.shape
+                    if num_samples is None:
+                        num_samples = set_size
                     
                     # Encode samples to latent space
                     latent = encoder(samples)

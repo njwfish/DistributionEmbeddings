@@ -1,6 +1,6 @@
 _target_: datasets.distribution_datasets.GaussianMixtureModelDataset
 n_sets: 10000
-set_size: 500
+set_size: 1000
 data_shape: [2]
 seed: ${seed} 
 n_components: 3

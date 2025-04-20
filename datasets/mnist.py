@@ -6,21 +6,7 @@ from torchvision import transforms
 from torchvision.datasets import MNIST
 
 
-class SetDataset(Dataset):
-    """Base class for datasets that contain sets of elements."""
-    
-    def __len__(self):
-        raise NotImplementedError
-    
-    def __getitem__(self, idx):
-        """
-        Returns:
-            Dict containing at least 'samples' and 'metadata' keys
-        """
-        raise NotImplementedError
-
-
-class MNISTDataset(SetDataset):
+class MNISTDataset(Dataset):
     """Dataset for MNIST with pure digit classes per set (one digit class per set)."""
     
     def __init__(

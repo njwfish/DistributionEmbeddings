@@ -1,6 +1,6 @@
 _target_: datasets.distribution_datasets.MultivariateNormalDistributionDataset
 n_sets: 10000
-set_size: 500
+set_size: ${experiment.set_size}
 data_shape: [2]
 seed: ${seed} 
 prior_mu: [0, 5]

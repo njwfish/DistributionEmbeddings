@@ -54,6 +54,7 @@ def main(cfg: DictConfig):
             dataset, 
             batch_size=cfg.experiment.batch_size, 
             shuffle=True,
+            prefetch_factor=2,
             num_workers=num_workers,  # Parallel data loading
             pin_memory=True,  # Pin memory for faster data transfer to GPU
             persistent_workers=True if num_workers > 0 else False,  # Keep workers alive between iterations
