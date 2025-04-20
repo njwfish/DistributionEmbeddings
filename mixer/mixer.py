@@ -4,6 +4,7 @@ def generate_k_sparse_dirichlet_probs(
         batch_size: int, 
         k: int = 2, 
         alpha: float = 1.0,
+        batch_size_out: int = None,
         device: torch.device = None
     ) -> torch.Tensor:
     """
@@ -23,19 +24,21 @@ def generate_k_sparse_dirichlet_probs(
     Returns:
         Tensor of shape (batch_size, batch_size) with mixing probabilities
     """
+    if batch_size_out is None:
+        batch_size_out = batch_size
     if k > batch_size:
         raise ValueError(f"k ({k}) cannot be larger than batch_size ({batch_size})")
     
     # Generate all source set indices at once (batch_size, k)
-    source_sets = torch.argsort(torch.rand(batch_size, batch_size, device=device), dim=1)[:, :k]
+    source_sets = torch.argsort(torch.rand(batch_size_out, batch_size, device=device), dim=1)[:, :k]
     
     # Generate all Dirichlet weights at once (batch_size, k)
     weights = torch.distributions.Dirichlet(
-        torch.ones(batch_size, k, device=device) * alpha
+        torch.ones(batch_size_out, k, device=device) * alpha
     ).sample()
     
     # Create sparse mixing matrix using scatter
-    mix_probs = torch.zeros(batch_size, batch_size, device=device)
+    mix_probs = torch.zeros(batch_size_out, batch_size, device=device)
     mix_probs.scatter_(1, source_sets, weights)
     
     return mix_probs
@@ -86,7 +89,7 @@ def mix_batch_sets(
         # If no mix_probs provided, generate k-sparse Dirichlet probabilities
         if mix_probs is None:
             k = k if k is not None else batch_size // 2
-            mix_probs = generate_k_sparse_dirichlet_probs(n_mixed_sets, k, alpha, device)
+            mix_probs = generate_k_sparse_dirichlet_probs(batch_size, k, alpha, batch_size_out=n_mixed_sets, device=device)
             
         # Generate source indices once to use for all sample-specific data
         source_set_indices = torch.multinomial(
@@ -127,12 +130,12 @@ def mix_batch_sets(
         # If no mix_probs provided, generate k-sparse Dirichlet probabilities
         if mix_probs is None:
             k = k if k is not None else batch_size // 2
-            mix_probs = generate_k_sparse_dirichlet_probs(n_mixed_sets, k, alpha, device)
+            mix_probs = generate_k_sparse_dirichlet_probs(batch_size, k, alpha, batch_size_out=n_mixed_sets, device=device)
 
         if mixed_set_size is None:
             mixed_set_size = set_size
             
-        # Sample source sets and points in one go
+        # Sample source sets and points in one g
         source_set_indices = torch.multinomial(
             mix_probs,
             num_samples=mixed_set_size,
