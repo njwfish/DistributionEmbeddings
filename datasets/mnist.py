@@ -27,6 +27,9 @@ class MNISTDataset(Dataset):
             train: Whether to use training or test data
             download: Whether to download the dataset if not found
             seed: Random seed for reproducibility
+
+        notes:
+            n_sets will be multiple of n_classes
         """
         if seed is not None:
             np.random.seed(seed)
