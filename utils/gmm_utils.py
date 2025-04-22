@@ -270,6 +270,7 @@ def plot_weight_simplex(weights: np.ndarray,
         ax.legend(frameon=True, fancybox=True, shadow=True)
         ax.set_title('Weight Evolution') 
 
+
 def optimize_gmm(m_s: torch.Tensor,
                 m_t: torch.Tensor,
                 C_s: torch.Tensor,
@@ -333,7 +334,7 @@ def optimize_gmm(m_s: torch.Tensor,
         """Loss function that takes flattened parameters."""
         means, covs, logits = unflatten_params(params_flat)
         weights = torch.softmax(logits, dim=0)
-        covs = proj_SDP(covs, vmin=min_cov)
+        covs = proj_SDP(covs)
         return gmm_ot_loss(means, m_t, covs, C_t, weights, w_t)
     
     # Initialize trajectory storage
@@ -350,12 +351,12 @@ def optimize_gmm(m_s: torch.Tensor,
         grad_flat = torch.autograd.grad(loss, params_flat, create_graph=True)[0]
         
         if use_natural_gradient:
-            # Compute Hessian directly
-            H = torch.autograd.functional.hessian(loss_fn, params_flat)
+            # Compute Fisher Information Matrix as outer product of gradients
+            F = grad_flat.unsqueeze(1) @ grad_flat.unsqueeze(0)
             
             # Add damping and solve for natural gradient
-            H_damped = H + damping * torch.eye(H.shape[0], dtype=H.dtype)
-            nat_grad_flat = torch.linalg.solve(H_damped, grad_flat)
+            F_damped = F + damping * torch.eye(F.shape[0], dtype=F.dtype)
+            nat_grad_flat = torch.linalg.solve(F_damped, grad_flat)
             
             grad_flat = nat_grad_flat
         
@@ -368,7 +369,7 @@ def optimize_gmm(m_s: torch.Tensor,
             
         # Store current state
         means_list.append(means.detach().cpu().numpy())
-        covs_list.append(proj_SDP(covs, vmin=min_cov).clone().detach().cpu().numpy())
+        covs_list.append(proj_SDP(covs).clone().detach().cpu().numpy())
         weights_list.append(torch.softmax(logits, dim=0).detach().cpu().numpy())
         loss_list.append(loss.item())
     
