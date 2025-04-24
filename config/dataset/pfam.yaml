@@ -1,0 +1,10 @@
+_target_: datasets.protein.PfamDataset
+data_dir: "/orcd/data/omarabu/001/gokul/DistributionEmbeddings/data/pfam"
+set_size: 16
+max_length: 512
+esm_name: 'facebook/esm2_t6_8M_UR50D'
+progen_name: 'hugohrban/progen2-medium'
+lines_to_read: 10000000
+max_sets_per_fam: 100
+tokenize: false
+seed: ${seed}

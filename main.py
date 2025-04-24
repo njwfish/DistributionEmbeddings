@@ -68,6 +68,7 @@ def main(cfg: DictConfig):
         # Create generator (with model already instantiated)
         generator = hydra.utils.instantiate(cfg.generator)
         
+        print(type(encoder))
         # Get model parameters
         model_parameters = list(encoder.parameters()) + list(generator.model.parameters())
         
