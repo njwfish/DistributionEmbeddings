@@ -15,15 +15,15 @@ defaults:
 experiment:
   latent_dim: 64
   name: synthetic_dna_hyena
-  batch_size: 10
+  batch_size: 8
   set_size: 100
 
 # Dataset-specific settings
 dataset:
-  pattern_length: 1     # Length of repeating pattern
-  seq_length: 10        # Length of each sequence
+  pattern_length: 4     # Length of repeating pattern
+  seq_length: 20        # Length of each sequence
   num_sets: 1000          # Number of different patterns
-  max_seq_length: 15    # Shorter sequences for faster training
+  max_seq_length: 22    # Shorter sequences for faster training
 
 # Optimizer settings
 optimizer:

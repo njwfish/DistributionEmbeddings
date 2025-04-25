@@ -720,8 +720,28 @@ class LMBackbone(nn.Module):
         self.apply(partial(_init_weights, n_layer=n_layer,
                            **(initializer_cfg if initializer_cfg is not None else {})))
 
-    def forward(self, input_ids, position_ids=None):
-        hidden_states = self.embeddings(input_ids, position_ids=position_ids,)
+    def forward(self, input_ids=None, position_ids=None, inputs_embeds=None):
+        """
+        Forward pass through the backbone model.
+        
+        Args:
+            input_ids: Optional tensor of token IDs [batch_size, seq_len]
+            position_ids: Optional tensor of position IDs [batch_size, seq_len]
+            inputs_embeds: Optional pre-computed embeddings [batch_size, seq_len, d_model]
+            
+        Returns:
+            hidden_states: Output hidden states [batch_size, seq_len, d_model]
+        """
+        # Either input_ids or inputs_embeds must be provided
+        if input_ids is None and inputs_embeds is None:
+            raise ValueError("Either input_ids or inputs_embeds must be provided")
+        
+        # Generate embeddings if not provided directly
+        if inputs_embeds is None:
+            hidden_states = self.embeddings(input_ids, position_ids=position_ids)
+        else:
+            hidden_states = inputs_embeds
+        
         residual = None
 
         for layer in self.layers:
@@ -910,8 +930,8 @@ class HyenaDNAModel(nn.Module):
     # def tie_weights(self):
     #     self.head.weight = self.backbone.embeddings.word_embeddings.weight
 
-    def forward(self, input_ids, position_ids=None, state=None): # state for the repo interface
-        hidden_states = self.backbone(input_ids, position_ids=position_ids)
+    def forward(self, input_ids=None, position_ids=None, inputs_embeds=None, state=None): # state for the repo interface
+        hidden_states = self.backbone(input_ids=input_ids, position_ids=position_ids, inputs_embeds=inputs_embeds)
 
         if self.use_head:
             return self.head(hidden_states)

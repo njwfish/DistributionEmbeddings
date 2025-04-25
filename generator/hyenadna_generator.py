@@ -14,7 +14,7 @@ class ConditionedHyenaDNA(nn.Module):
         n_layer=6,
         vocab_size=11,  # A, C, G, T, N
         max_seq_len=512,
-        condition_method="prefix"  # Changed back to prefix
+        condition_method="prefix"
     ):
         """
         Initialize a conditioned HyenaDNA model.
@@ -33,11 +33,14 @@ class ConditionedHyenaDNA(nn.Module):
         # Initialize HyenaDNA model
         from generator.hyenadna import HyenaDNAModel
         
+        # Adjust max_seq_len to account for prefix token if using prefix conditioning
+        self.actual_max_seq_len = max_seq_len + 1 if condition_method == "prefix" else max_seq_len
+        
         # Configure parameters for the HyenaDNA model
         # The layer parameter needs to be a dictionary with specific settings
         hyena_layer_config = {
             'd_model': d_model,
-            'l_max': max_seq_len,  # Required by HyenaOperator
+            'l_max': self.actual_max_seq_len,  # Use adjusted max length for HyenaOperator
             'order': 2,            # Default Hyena recurrence depth
             'filter_order': 64     # Default filter order
         }
@@ -47,7 +50,7 @@ class ConditionedHyenaDNA(nn.Module):
             n_layer=n_layer,
             d_inner=4 * d_model,
             vocab_size=vocab_size,
-            max_position_embeddings=max_seq_len,
+            max_position_embeddings=self.actual_max_seq_len,  # Use adjusted max length
             layer=hyena_layer_config,  # Pass the layer config as a dictionary
             attn_layer_idx=None,       # No attention layers
             attn_cfg=None,             # No attention config
@@ -62,7 +65,8 @@ class ConditionedHyenaDNA(nn.Module):
         
         self.condition_method = condition_method
         self.hidden_dim = d_model
-        self.max_seq_len = max_seq_len
+        self.max_seq_len = max_seq_len  # Keep original max_seq_len for input validation
+        self.vocab_size = vocab_size
         
         # Project latent to condition dimension
         self.condition_proj = nn.Sequential(
@@ -72,11 +76,9 @@ class ConditionedHyenaDNA(nn.Module):
         )
         
         if self.condition_method == "prefix":
-            # Additional projection for prefix conditioning
-            self.prefix_projection = nn.Sequential(
-                nn.Linear(self.hidden_dim, self.hidden_dim),
-                nn.Tanh()
-            )
+            # No additional projection needed for prefix conditioning
+            # We'll directly use the condition as a prefix embedding
+            pass
         elif self.condition_method == "additive":
             # For additive conditioning
             self.condition_adapter = nn.Sequential(
@@ -100,32 +102,52 @@ class ConditionedHyenaDNA(nn.Module):
         """
         batch_size = input_ids.shape[0]
         
+        # Validate sequence length
+        if len(input_ids.shape) == 3:
+            seq_len = input_ids.shape[-1]
+        else:
+            seq_len = input_ids.shape[1]
+            
+        if seq_len > self.max_seq_len:
+            raise ValueError(f"Input sequence length {seq_len} exceeds maximum allowed length {self.max_seq_len}")
+        
         # Project latent to correct dimension
         condition = self.condition_proj(latent)
         
         if self.condition_method == "prefix":
             # Handle set_size dimension if present
             if len(input_ids.shape) == 3:  # [batch_size, set_size, seq_len]
-                set_size, seq_len = input_ids.shape[1:]
+                batch_size, set_size, seq_len = input_ids.shape
                 input_ids = input_ids.view(batch_size * set_size, seq_len)
                 attention_mask = attention_mask.view(batch_size * set_size, seq_len)
                 condition = condition.unsqueeze(1).repeat(1, set_size, 1).view(batch_size * set_size, -1)
                 batch_size = batch_size * set_size
             
-            # For prefix conditioning, we'll run the model on the input first
-            hidden_states = self.model.backbone(input_ids=input_ids)
+            # Get input embeddings from the model
+            input_embeds = self.model.backbone.embeddings.word_embeddings(input_ids)
             
-            # Project the condition to create a prefix
-            prefix = self.prefix_projection(condition).unsqueeze(1)  # [batch_size, 1, hidden_dim]
+            # Create prefix embedding from condition
+            prefix_embeds = condition.unsqueeze(1)  # [batch_size, 1, hidden_dim]
             
-            # Concatenate prefix to the beginning of hidden states
-            prefixed_hidden_states = torch.cat([prefix, hidden_states], dim=1)  # [batch_size, seq_len+1, hidden_dim]
+            # Concatenate prefix with input embeddings
+            combined_embeds = torch.cat([prefix_embeds, input_embeds], dim=1)
             
-            # Project to vocabulary
-            logits = self.lm_head(prefixed_hidden_states)
+            # Generate position IDs for the combined sequence
+            combined_seq_length = combined_embeds.size(1)
+            position_ids = torch.arange(0, combined_seq_length, dtype=torch.long, device=combined_embeds.device)
+            position_ids = position_ids.unsqueeze(0).expand(batch_size, -1)
             
-            # Remove the first token's logits (the prefix)
-            logits = logits[:, 1:, :]
+            # Forward pass through the model using inputs_embeds
+            hidden_states = self.model.backbone(
+                position_ids=position_ids,
+                inputs_embeds=combined_embeds
+            )
+            
+            # Get logits from language model head
+            logits = self.lm_head(hidden_states)
+            
+            # Remove prefix logits
+            logits = logits[:, 1:, :]  # Remove the first position (prefix)
             
         elif self.condition_method == "additive":
             # Handle set_size dimension if present
@@ -136,7 +158,7 @@ class ConditionedHyenaDNA(nn.Module):
                 condition = condition.unsqueeze(1).repeat(1, set_size, 1).view(batch_size * set_size, -1)
                 batch_size = batch_size * set_size
             
-            # Run model normally - in HyenaDNA, only input_ids is required
+            # Process with the backbone first
             hidden_states = self.model.backbone(input_ids=input_ids)
             
             # Process condition
@@ -148,7 +170,7 @@ class ConditionedHyenaDNA(nn.Module):
             # Add condition to hidden states
             hidden_states = hidden_states + processed_condition
             
-            # Project to vocabulary
+            # Project to vocabulary with language model head
             logits = self.lm_head(hidden_states)
         
         return logits
@@ -165,7 +187,7 @@ class HyenaDNAGenerator:
         n_layer=6,
         vocab_size=None,  # Will be determined from the tokenizer
         max_seq_len=512,
-        condition_method="prefix",  # Changed back to prefix
+        condition_method="prefix",
         temperature=1.0,
     ):
         """
@@ -180,8 +202,6 @@ class HyenaDNAGenerator:
             max_seq_len: Maximum sequence length
             condition_method: How to condition the model ('prefix' or 'additive')
             temperature: Sampling temperature
-            top_k: Top-k sampling parameter
-            top_p: Nucleus sampling parameter
         """
         # Initialize tokenizer first so we can determine the vocab size
         from generator.hyenadna import CharacterTokenizer
@@ -290,8 +310,8 @@ class HyenaDNAGenerator:
         # Keep track of which sequences are already finished
         unfinished_sequences = torch.ones(batch_size, dtype=torch.long, device=device)
         
-        # Get the actual EOS token ID instead of using "N" as a proxy
-        eos_token_id = self.tokenizer.eos_token_id  # This is [SEP] with ID=1
+        # Get the actual EOS token ID 
+        eos_token_id = self.tokenizer.eos_token_id  # [SEP] token with ID=1
         
         while cur_len < max_length:
             # Get next-token logits
@@ -341,7 +361,7 @@ class HyenaDNAGenerator:
         # Prepare for generation
         start_tokens = torch.full(
             (batch_size, 1),
-            self.tokenizer.bos_token_id,  # BOS token ID = 2
+            self.tokenizer.cls_token_id,  # Use BOS token ID = 2
             dtype=torch.long,
             device=device
         )
@@ -371,7 +391,7 @@ class HyenaDNAGenerator:
                 # Pad with EOS tokens
                 padding = torch.full(
                     (batch_size, max_len - ids.size(1)),
-                    self.tokenizer.eos_token_id,
+                    self.tokenizer.sep_token_id,
                     dtype=ids.dtype,
                     device=device
                 )

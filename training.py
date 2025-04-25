@@ -154,7 +154,8 @@ class Trainer:
                         context_mask = torch.bernoulli(torch.zeros(latent.shape[0])+self.mask_context_prob).to(latent.device)
                         latent = latent * context_mask
                     # Calculate loss
-                    # print(latent.mean(axis=1))
+                    # print(latent[:, 0])
+                    # print([torch.argmax(t[0][0]) for t in batch['samples']['encoder_inputs']])
                     loss = generator.loss(samples, latent)
                 
                 optimizer.zero_grad()

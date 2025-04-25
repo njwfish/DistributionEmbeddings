@@ -21,14 +21,14 @@ class Conv1DGNNLayer(nn.Module):
         # Convolutional layers for processing individual sequences
         self.conv = nn.Sequential(
             nn.Conv1d(in_channels, out_channels, kernel_size=kernel_size, padding=kernel_size//2),
-            # nn.BatchNorm1d(out_channels),
+            nn.BatchNorm1d(out_channels),
             nn.GELU()
         )
         
         # Layer for processing aggregated features
         self.update = nn.Sequential(
             nn.Conv1d(out_channels * 2, out_channels, kernel_size=1),
-            # nn.BatchNorm1d(out_channels),
+            nn.BatchNorm1d(out_channels),
             nn.GELU()
         )
 
@@ -98,7 +98,7 @@ class DNAConvEncoder(nn.Module):
         # Initial convolutional layer
         self.initial_conv = nn.Sequential(
             nn.Conv1d(in_channels, hidden_channels, kernel_size=kernel_size, padding=kernel_size//2),
-            # nn.BatchNorm1d(hidden_channels),
+            nn.BatchNorm1d(hidden_channels),
             nn.GELU()
         )
         
@@ -127,13 +127,19 @@ class DNAConvEncoder(nn.Module):
     def forward(self, x):
         """
         Args:
-            x: DNA sequences tensor of shape [batch_size, set_size, seq_length, channels]
-              representing a batch of sets of one-hot encoded DNA sequences
+            x: DNA sequences tensor or dictionary containing encoder_inputs
+            For sets: encoder_inputs shape is [batch_size, set_size, seq_length, channels]
+            For non-sets: encoder_inputs shape is [batch_size, seq_length, channels]
         Returns:
             Latent representation of the distribution of shape [batch_size, latent_dim]
         """
-        x = x['encoder_inputs']
+        # Handle both dictionary input (with 'encoder_inputs' key) and direct tensor input
+        if isinstance(x, dict):
+            x = x['encoder_inputs']
+            
+
         batch_size, set_size, seq_length, channels = x.shape
+
         
         # Reshape for 1D convolution (channels first)
         x = x.permute(0, 1, 3, 2)  # [batch_size, set_size, channels, seq_length]
@@ -156,8 +162,7 @@ class DNAConvEncoder(nn.Module):
         x_final = x_final.view(batch_size, set_size, self.out_channels, seq_out)
         
         # Process each sequence with pre-pooling MLP
-        x_final = x_final.permute(0, 1, 2, 3)  # [batch_size, set_size, out_channels, seq_length]
-        x_final = x_final.reshape(batch_size, set_size, self.out_channels, seq_out)
+        x_final = x_final.view(batch_size, set_size, self.out_channels, seq_out)
         x_pre_pool = self.pre_pool_mlp(x_final)  # Collapse sequence dimension
         x_pre_pool = torch.mean(x_pre_pool, dim=2)  # Average over channel dimension
         

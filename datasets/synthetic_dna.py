@@ -157,18 +157,21 @@ class SyntheticDNADataset(Dataset):
         Returns:
             Tokenized tensor and attention mask
         """
-        # Truncate if necessary
-        sequence = sequence[:self.max_seq_length].upper()
+        # Truncate if necessary, but ensure we keep enough space for special tokens
+        # Ensure max_length includes room for the sequence plus special tokens
+        effective_max_length = self.max_seq_length - 2  # -2 for [CLS] and [SEP]
+        sequence = sequence[:effective_max_length].upper()
         
-        # Tokenize with BOS token
+        # Tokenize with special tokens
         tokens = self.hyena_tokenizer(
             sequence, 
             padding='max_length', 
             truncation=True, 
             max_length=self.max_seq_length,
-            add_special_tokens=True,  # This will add the BOS token
+            add_special_tokens=True,  # This will add BOS token, etc.
             return_tensors='pt'
         )
+        # print("tokens", tokens, tokens.input_ids.shape, tokens.attention_mask.shape)
         
         return tokens.input_ids[0], tokens.attention_mask[0]
     
