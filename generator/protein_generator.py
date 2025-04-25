@@ -29,10 +29,11 @@ class ConditionedProgen2(nn.Module):
 
     def forward(self, input_ids, esm_embedding):
         # Get the prefix embeddings from the ESM embedding
-        prefix_embeddings = self.prefix_module(esm_embedding).repeat(input_ids.shape[0], 1, 1)
+        prefix_embeddings = self.prefix_module(esm_embedding)
+        
+        prefix_embeddings = prefix_embeddings.repeat(input_ids.shape[0]//prefix_embeddings.shape[0], 1, 1)
 
         input_embeddings = self.model.transformer.wte(input_ids)  # Get the token embeddings
-
 
         combined_embeddings = torch.cat((prefix_embeddings, input_embeddings), dim=1)
         
@@ -75,7 +76,7 @@ class Progen2Generator(nn.Module):
         )
         return loss
 
-    def sample(self, latent, num_samples=1, return_seq=False):
+    def sample(self, latent, num_samples=1, return_texts=False):
         device = latent.device
         batch_size = latent.size(0)
         start_ids = torch.tensor(
@@ -91,7 +92,7 @@ class Progen2Generator(nn.Module):
 
         out = torch.stack(all_samples, dim=1)
 
-        if return_seq:
+        if return_texts:
             texts = [
                 [self.tokenizer.decode(out[b, n], skip_special_tokens=True)
                  for n in range(num_samples)]

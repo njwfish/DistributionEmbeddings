@@ -3,5 +3,5 @@ _target_ : generator.protein_generator.Progen2Generator
 progen2_name: ${experiment.progen2_model_name}
 latent_dim: ${experiment.latent_dim}
 prefix_length: 10
-max_length: 512
+max_length: ${experiment.max_length}
 temperature: 1.0

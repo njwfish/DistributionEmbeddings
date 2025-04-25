@@ -1,10 +1,10 @@
 _target_: datasets.protein.PfamDataset
 data_dir: "/orcd/data/omarabu/001/gokul/DistributionEmbeddings/data/pfam"
 set_size: 16
-max_length: 512
+max_length: ${experiment.max_length}
 esm_name: ${experiment.esm_model_name}
 progen_name: ${experiment.progen2_model_name}
-lines_to_read: 10000000
+lines_to_read: 10000
 max_sets_per_fam: 100
-tokenize: false
+tokenize: ${experiment.tokenize}
 seed: ${seed}

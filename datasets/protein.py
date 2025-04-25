@@ -91,7 +91,7 @@ class PfamDataset(Dataset):
                     'progen_input_ids': pg2['input_ids'],
                     'progen_attention_mask': pg2['attention_mask'],},
                     'pfam': fam,
-                    'raw_texts': batch
+                    'raw_texts': [b[:self.max_length] for b in batch] # note truncated
                 })
 
         torch.save(tokenized_data, self.tokenized_data_file)
@@ -112,5 +112,5 @@ class PfamDataset(Dataset):
             'progen_input_ids': progen_input_ids,
             'progen_attention_mask': progen_attention_mask},
             'pfam': item['pfam'],
-            'raw_texts': item['raw_texts']
+            'raw_texts': tuple(item['raw_texts'])
         }

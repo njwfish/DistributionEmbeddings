@@ -153,7 +153,7 @@ class Trainer:
                     if self.mask_context_prob > 0:
                         context_mask = torch.bernoulli(torch.zeros(latent.shape[0])+self.mask_context_prob).to(latent.device)
                         latent = latent * context_mask
-                    # Calculate loss
+
                     loss = generator.loss(samples, latent)
                 
                 optimizer.zero_grad()
@@ -244,6 +244,8 @@ class Trainer:
                 
                     # Log generated samples to W&B (optional)
                     if wandb.run is not None:
+                        n_examples = min(6, len(samples['original']))
+                        n_examples_per_example = min(6, len(samples['original_texts'][0]))
                         # Handle different types of samples
                         if 'generated_texts' in samples:
                             # For text data, use our text visualization
@@ -254,22 +256,32 @@ class Trainer:
                                 samples['generated_texts']
                             )
 
-                            # Create a combined table with original and generated texts side by side
-                            paired_data = []
-                            for i in range(len(samples['original_texts'])):
-                                for j in range(len(samples['original_texts'][i])):
-                                    paired_data.append([samples['original_texts'][i][j], samples['generated_texts'][i][j]])
-                            
+                            # Create a dataframe with original and generated texts, first need to flatten into sets
+                            flat_original = []
+                            flat_generated = []
+                            set_indices = []
+                            for i in range(n_examples):
+                                for j in range(n_examples_per_example):
+                                    flat_original.append(samples['original_texts'][i][j])
+                                    flat_generated.append(samples['generated_texts'][i][j])
+                                    set_indices.append(i)
+
+                            import pandas as pd
+                            df = pd.DataFrame({
+                                'original': flat_original,
+                                'generated': flat_generated,
+                                'set_index': set_indices
+                            })
+
                             # Log a single table with both original and generated texts
                             wandb.log({
-                                "epoch/text_samples": wandb.Table(data=paired_data, columns=["original", "generated"])
+                                "epoch/text_samples": wandb.Table(dataframe=df)
                             }, step=(epoch + 1) * len(dataloader))
                             
                         elif 'original' in samples and 'generated' in samples and hasattr(samples['original'], 'shape'):
                             # For numerical or image data, use the original visualization
                             # We'll log just a few samples to avoid excessive data transfer
                             n_examples = min(6, samples['original'].shape[0])
-                            
                             for i in range(n_examples):
                                 save_path = os.path.join(output_dir, f"pairplot_{i}_epoch_{epoch+1}.png")
                                 visualize_data(
@@ -407,10 +419,10 @@ class Trainer:
                     
                     # Keep raw texts for reference
                     raw_texts = batch.get('raw_texts', None)
-                    num_sets = len(raw_texts)
-                    set_size = len(raw_texts[0])
+                    set_size = len(raw_texts)
+                    num_sets = len(raw_texts[0])
                     # reshape raw_texts list from [set_size, num_samples] to [num_samples, set_size]
-                    raw_texts = [[raw_texts[j][i] for j in range(num_sets)] for i in range(set_size)]
+                    raw_texts = [[raw_texts[j][i] for j in range(set_size)] for i in range(num_sets)]
 
                     # Encode samples to latent space
                     latent = encoder(samples)
@@ -432,5 +444,4 @@ class Trainer:
                             'original': samples,
                             'generated': generated.cpu(),
                             'original_texts': raw_texts
-                        } 
-            
+                        }
