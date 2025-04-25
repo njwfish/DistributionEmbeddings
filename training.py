@@ -245,9 +245,9 @@ class Trainer:
                     # Log generated samples to W&B (optional)
                     if wandb.run is not None:
                         n_examples = min(6, len(samples['original']))
-                        n_examples_per_example = min(6, len(samples['original_texts'][0]))
                         # Handle different types of samples
                         if 'generated_texts' in samples:
+                            n_examples_per_example = min(6, len(samples['original_texts'][0]))
                             # For text data, use our text visualization
                             text_output_dir = os.path.join(output_dir, f"text_samples_epoch_{epoch+1}")
                             visualize_text_data(

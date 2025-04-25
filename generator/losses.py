@@ -102,75 +102,69 @@ def mmd(X, Y, gamma=None, p: int = 2) -> torch.Tensor:
 def sinkhorn(
     X,
     Y,
-    reg = 1.,
+    reg=1.,
     max_iter=50,
-    eps = 1e-16,
-    p = 2
+    eps=1e-16,
+    p=2
 ):
-    """
-    X: (n, d) tensor of source samples
-    Y: (m, d) tensor of target samples
-    reg: regularization parameter
-    Returns: Sinkhorn loss between empirical distributions of X and Y
-    """
-    # Device and dtype setup
     device = X.device
     dtype = X.dtype
     
-  
-    # Create uniform distributions
     n = X.shape[0]
     m = Y.shape[0]
-    a = torch.ones(n, 1, device=device, dtype=dtype) 
-    b = torch.ones(m, 1, device=device, dtype=dtype) 
+    a = torch.ones(n, 1, device=device, dtype=dtype) / n  # Proper uniform distribution
+    b = torch.ones(m, 1, device=device, dtype=dtype) / m   # Proper uniform distribution
 
-    # Compute pairwise cost matrix (squared Euclidean)
-
+    # Compute pairwise cost matrix
     M = torch.cdist(X, Y, p=p)**p
-    #M = pairwise_cosine_distance(X,Y)
-    #reg = 0.1 * torch.median(M)
-    #reg = 0.1 * torch.median(M)
-
-    # Compute kernel matrix with numerical stability
     K = torch.exp(-M / (reg + eps))  # (n, m)
 
-    # Sinkhorn iterations
-    for ii in range(max_iter):
-        # uprev = u.clone()
-        # vprev = v.clone()
-
-        # Update v then u
-        a = 1 / (torch.mm(K, b) + eps)  # (m, 1)
-        b = 1 / (torch.mm(K.t(), a) + eps)  # (n, 1)
-
-        # have to comment this because we want to
-        # vmap which cannot be done through control flow
-        # Check for numerical issues
-        # if (torch.any(Ktu.abs() < stop_thresh) or 
-        #     torch.any(torch.isnan(u)) or 
-        #     torch.any(torch.isnan(v)) or 
-        #     torch.any(torch.isinf(u)) or 
-        #     torch.any(torch.isinf(v))
-        # ):
-        #    u = uprev
-        #    v = vprev
-        #    break
-
-    # Compute transport plan and loss
-    loss = torch.einsum('ij,i,j,ij->', M, a.flatten(), b.flatten(), K)
+    # Initialize dual variables
+    u = torch.ones_like(a)
+    v = torch.ones_like(b)
     
-    return loss.squeeze()
-
-def sinkhorn_loss(X, Y, reg=1., max_iter=50, eps=1e-16, p=2):
-    """
-    Compute Sinkhorn loss between two sets of samples.
+    for _ in range(max_iter):
+        # Update u and v
+        u = a / (K @ v + eps)
+        v = b / (K.T @ u + eps)
     
-    Args:
-        X: (n, d) tensor of source samples
-        Y: (m, d) tensor of target samples
-        reg: regularization parameter
-        max_iter: maximum number of Sinkhorn iterations
-        eps: small constant for numerical stability
-        p: power parameter for the distance metric
+    # Compute transport plan
+    P = u * K * v.T  # diag(u) @ K @ diag(v)
+    
+    # Compute loss
+    loss = torch.sum(P * M)
+    
+    return loss
+
+def sinkhorn_loss(X, Y, reg=1., max_iter=100, eps=1e-16, p=2):
     """
-    return 2 * sinkhorn(X, Y, reg, max_iter, eps, p) - sinkhorn(X, X, reg, max_iter, eps, p) - sinkhorn(Y, Y, reg, max_iter, eps, p)
+    Compute Sinkhorn divergence between two sets of samples.
+    This is a proper distance metric (positive definite).
+    """
+    XY = sinkhorn(X, Y, reg, max_iter, eps, p)
+    XX = sinkhorn(X, X, reg, max_iter, eps, p)
+    YY = sinkhorn(Y, Y, reg, max_iter, eps, p)
+    return XY - 0.5 * (XX + YY)  # Note the 0.5 factor instead of 2
+
+def pairwise_sinkhorn(X, reg=1., max_iter=100, eps=1e-1, p=2):
+    """
+    X: (b, n, d) tensor
+    returns: (b, b) sinkhorn loss matrix
+    """
+    b = X.shape[0]
+    
+    # expand X to compare all pairs
+    X1 = X.unsqueeze(1).expand(-1, b, -1, -1)  # (b, b, n, d)
+    X2 = X.unsqueeze(0).expand(b, -1, -1, -1)  # (b, b, n, d)
+    
+    # flatten for vmap
+    X1_flat = X1.reshape(-1, *X.shape[1:])
+    X2_flat = X2.reshape(-1, *X.shape[1:])
+    
+    # compute all pairs
+    all_pairs = torch.vmap(lambda x, y: sinkhorn_loss(x, y, reg, max_iter, eps, p))(X1_flat, X2_flat)
+    
+    # reshape back
+    loss_matrix = all_pairs.reshape(b, b)
+    
+    return loss_matrix
