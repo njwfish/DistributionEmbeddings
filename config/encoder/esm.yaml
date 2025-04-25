@@ -1,6 +1,6 @@
 # @package _global_.encoder
 _target_: encoder.protein_encoders.ProteinSetEncoder
-esm_model_name: 'facebook/esm2_t6_8M_UR50D'
+esm_model_name: ${experiment.esm_model_name}
 latent_dim: ${experiment.latent_dim}
 hidden_dim: ${experiment.hidden_dim}
 pooling: 'mean'

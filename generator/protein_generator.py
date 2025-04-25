@@ -25,20 +25,20 @@ class ConditionedProgen2(nn.Module):
         self.model = AutoModelForCausalLM.from_pretrained(progen2_name, trust_remote_code=True)
         self.tokenizer = AutoTokenizer.from_pretrained(progen2_name, trust_remote_code=True)
         self.prefix_module = ZToPrefix(latent_dim, prefix_length, self.model.config.embed_dim)
+        self.prefix_length = prefix_length
 
     def forward(self, input_ids, esm_embedding):
         # Get the prefix embeddings from the ESM embedding
-        prefix_embeddings = self.prefix_module(esm_embedding)
-        prefix_embeddings = prefix_embeddings.unsqueeze(1).repeat(1, input_ids.shape[1], 1, 1)
-        # Concatenate the prefix embeddings with the input embeddings
+        prefix_embeddings = self.prefix_module(esm_embedding).repeat(input_ids.shape[0], 1, 1)
+
         input_embeddings = self.model.transformer.wte(input_ids)  # Get the token embeddings
 
-        combined_embeddings = torch.cat((prefix_embeddings, input_embeddings), dim=2)
+
+        combined_embeddings = torch.cat((prefix_embeddings, input_embeddings), dim=1)
         
-        combined_embeddings = combined_embeddings.view(-1, combined_embeddings.shape[2], combined_embeddings.shape[3])
         # Forward pass through the model
         outputs = self.model(inputs_embeds=combined_embeddings)
-        return outputs.logits[:, 1:, :]
+        return outputs.logits[:, self.prefix_length:, :]
         
 class Progen2Generator(nn.Module):
     def __init__(
@@ -63,8 +63,12 @@ class Progen2Generator(nn.Module):
 
     def loss(self, x, latent):
         input_ids = x['progen_input_ids']
+        bs, set_size, seq_len = input_ids.shape
+        
+        input_ids = input_ids.view(bs * set_size, seq_len)
         shift_logits = self.model(input_ids, latent)[:, :-1, :]
-        shift_labels = input_ids.view(-1, input_ids.shape[1], input_ids.shape[2])[:, 1:]
+
+        shift_labels = input_ids[:, 1:]
         loss = F.cross_entropy(
             shift_logits.reshape(-1, shift_logits.size(-1)),
             shift_labels.reshape(-1)

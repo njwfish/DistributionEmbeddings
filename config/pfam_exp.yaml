@@ -17,8 +17,11 @@ defaults:
 experiment:
   latent_dim: 128
   hidden_dim: 256
-  batch_size: 1
+  batch_size: 8
   lr: 2e-5
+
+  esm_model_name: 'facebook/esm2_t6_8M_UR50D'
+  progen2_model_name: 'hugohrban/progen2-small'
   
 training:
   eval_interval: 1  # Evaluate every 500 steps
