@@ -2,7 +2,7 @@
 
 # Set default configurations
 defaults:
-  - dataset: dna
+  - dataset: methylation
   - encoder: dna_conv
   - generator: hyenadna
   - optimizer: adam
@@ -13,9 +13,9 @@ defaults:
   - _self_
 
 experiment:
-  latent_dim: 32
+  latent_dim: 64
   name: dna_hyena
-  set_size: 20
+  set_size: 100
   batch_size: 8
 
 # Optimizer settings
@@ -26,7 +26,7 @@ optimizer:
 # General settings
 seed: 42
 device: cuda
-experiment_name: dna_distribution_embeddings
+experiment_name: methyl_exp
 
 # Hydra-related settings
 hydra:

@@ -153,9 +153,7 @@ class Trainer:
                     if self.mask_context_prob > 0:
                         context_mask = torch.bernoulli(torch.zeros(latent.shape[0])+self.mask_context_prob).to(latent.device)
                         latent = latent * context_mask
-                    # Calculate loss
-                    # print(latent[:, 0])
-                    # print([torch.argmax(t[0][0]) for t in batch['samples']['encoder_inputs']])
+
                     loss = generator.loss(samples, latent)
                 
                 optimizer.zero_grad()
@@ -247,6 +245,7 @@ class Trainer:
                     # Log generated samples to W&B (optional)
                     if wandb.run is not None:
                         n_examples = min(6, len(samples['original']))
+                        n_examples_per_example = min(6, len(samples['original_texts'][0]))
                         # Handle different types of samples
                         if 'generated_texts' in samples:
                             # For text data, use our text visualization
@@ -262,7 +261,7 @@ class Trainer:
                             flat_generated = []
                             set_indices = []
                             for i in range(n_examples):
-                                for j in range(len(samples['original_texts'][i])):
+                                for j in range(n_examples_per_example):
                                     flat_original.append(samples['original_texts'][i][j])
                                     flat_generated.append(samples['generated_texts'][i][j])
                                     set_indices.append(i)
@@ -273,16 +272,10 @@ class Trainer:
                                 'generated': flat_generated,
                                 'set_index': set_indices
                             })
-                            print(df.head())
-
-                            print(len(flat_original), len(flat_generated), len(set_indices))
-                            print(df.isnull().sum())  # Show how many nulls in each column
-
-
 
                             # Log a single table with both original and generated texts
                             wandb.log({
-                                "epoch/text_samples": wandb.Table(data=df.values.tolist(), columns=df.columns.tolist())
+                                "epoch/text_samples": wandb.Table(dataframe=df)
                             }, step=(epoch + 1) * len(dataloader))
                             
                         elif 'original' in samples and 'generated' in samples and hasattr(samples['original'], 'shape'):
