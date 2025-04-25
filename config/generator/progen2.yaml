@@ -1,7 +1,9 @@
 # @package _global_.generator
-_target_ : generator.protein_generator.Progen2Generator
+_target_: generator.protein_generator.Progen2Generator
 progen2_name: ${experiment.progen2_model_name}
 latent_dim: ${experiment.latent_dim}
-prefix_length: 10
+condition_dim: ${experiment.condition_dim}
+freeze_progen2: ${experiment.freeze_progen2}
+condition_method: ${experiment.condition_method}
+temperature: ${experiment.temperature}
 max_length: ${experiment.max_length}
-temperature: 1.0

@@ -1,0 +1,61 @@
+# @package _global_
+
+# Set default configurations
+defaults:
+  - dataset: synthetic_protein
+  - encoder: esm
+  - generator: progen2
+  - optimizer: adam
+  - scheduler: none
+  - training: default
+  - wandb: default
+  - mixer: none
+  - _self_
+
+experiment:
+  latent_dim: 128
+  name: synthetic_protein_progen
+  batch_size: 8
+  set_size: 64
+  esm_model_name: 'facebook/esm2_t6_8M_UR50D'
+  progen2_model_name: 'hugohrban/progen2-small'
+  max_length: 12
+  hidden_dim: 256
+  tokenize: true
+  condition_dim: 128
+  freeze_progen2: false
+  condition_method: prefix
+  temperature: 1.0
+
+# Dataset-specific settings
+dataset:
+  pattern_length: 4        # Length of repeating motif
+  seq_length: 10           # Length of each sequence
+  num_sets: 1000           # Number of different motifs
+  max_seq_length: 12       # Shorter sequences for faster training
+  mutation_rate: 0.00      # Rate at which to mutate amino acids
+
+# Optimizer settings
+optimizer:
+  lr: 2e-5                 # Learning rate for protein model
+
+# General settings
+seed: 42
+device: cuda
+experiment_name: synthetic_protein_embeddings
+
+# Hydra-related settings
+hydra:
+  run:
+    dir: outputs/${experiment_name}/${now:%Y-%m-%d_%H-%M-%S}
+  sweep:
+    dir: multirun/${experiment_name}/${now:%Y-%m-%d_%H-%M-%S}
+    subdir: ${hydra.job.num}
+  job:
+    config:
+      override_dirname:
+        exclude_keys:
+          - seed
+          - device
+          - hydra
+          - experiment_name 
