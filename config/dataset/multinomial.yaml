@@ -1,3 +1,4 @@
+# @package _global_.dataset
 _target_: datasets.distribution_datasets.MultinomialDistributionDataset
 n_sets: 10000
 set_size: 100

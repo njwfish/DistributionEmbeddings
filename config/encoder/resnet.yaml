@@ -1,5 +1,6 @@
+# @package _global_.encoder
 _target_: encoder.encoders.DistributionEncoderResNet
-in_dim: ${experiment.dataset.data_shape[0]}
+in_dim: ${dataset.data_shape[0]}
 latent_dim: ${experiment.latent_dim}
 hidden_dim: ${experiment.hidden_dim}
 set_size: ${experiment.set_size}

@@ -1,4 +1,4 @@
-# A scheduler that does nothing (keeps learning rate constant)
+# @package _global_.scheduler
 _target_: torch.optim.lr_scheduler.ConstantLR
 _partial_: true
 factor: 1.0

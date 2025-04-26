@@ -1,3 +1,4 @@
+# @package _global_.dataset
 _target_: datasets.distribution_datasets.GaussianMixtureModelDataset
 n_sets: 10000
 set_size: 1000

@@ -11,7 +11,7 @@ defaults:
   - training: default  # Default training config
   - mixer: none  # Default mixer
   - wandb: default  # Default W&B config
-  - experiment: null  # Experiment-specific configurations
+  - experiment: mvn  # Experiment-specific configurations
   - override hydra/launcher: slurm
   - _self_
 

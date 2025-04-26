@@ -1,5 +1,6 @@
+# @package _global_.model
 _target_: model.gnn.GNN
-gnn_dim: ${experiment.dataset.data_shape[0]}
+gnn_dim: ${dataset.data_shape[0]}
 in_dims:
   - ${experiment.latent_dim}
   - 1

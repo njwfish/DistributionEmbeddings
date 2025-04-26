@@ -1,3 +1,4 @@
+# @package _global_.dataset
 _target_: datasets.mnist.MNISTDataset
 set_size: 100
 root: /orcd/data/omarabu/001/njwfish/DistributionEmbeddings/data

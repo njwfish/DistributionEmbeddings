@@ -1,5 +1,6 @@
+# @package _global_.generator
 _target_: generator.direct.DirectGenerator
-model: ${experiment.model}  # This will be instantiated first
+model: ${model}  # This will be instantiated first
 loss_type: sinkhorn
 noise_dim: ${experiment.noise_dim} 
 loss_params:
