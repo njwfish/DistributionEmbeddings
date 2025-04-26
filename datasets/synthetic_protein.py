@@ -67,15 +67,6 @@ class SyntheticProteinDataset(Dataset):
         logger.info(f"Initializing Progen tokenizer from {progen_name}")
         self.progen_tokenizer = AutoTokenizer.from_pretrained(progen_name, trust_remote_code=True)
         
-        # Add special tokens if missing
-        special_tokens_dict = {}
-
-        print(self.progen_tokenizer)
-        
-        print("PAD TOKEN: ", self.progen_tokenizer.pad_token)
-        print("BOS TOKEN: ", self.progen_tokenizer.bos_token)
-        print("EOS TOKEN: ", self.progen_tokenizer.eos_token)
-
         self.progen_tokenizer.pad_token = '<|pad|>'
         self.progen_tokenizer.bos_token = '<|bos|>'
         self.progen_tokenizer.eos_token = '<|eos|>'

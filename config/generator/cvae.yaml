@@ -1,5 +1,5 @@
 _target_: generator.cvae.CVAE
-model: ${model}
+model: ${experiment.model}
 latent_dim: ${experiment.latent_dim}
 noise_shape: ${experiment.noise_dim}
 beta: 1.0

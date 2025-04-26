@@ -770,7 +770,7 @@ class HyenaDNAGenerator:
         condition_dim=128,
         d_model=128,
         n_layer=6,
-        vocab_size=None,  # Will be determined from the tokenizer
+        # vocab_size=None,  # Will be determined from the tokenizer
         max_seq_len=512,
         condition_method="prefix",
         temperature=1.0,
@@ -792,12 +792,10 @@ class HyenaDNAGenerator:
         from datasets.hyena_tokenizer import CharacterTokenizer
         dna_vocab = ["A", "C", "G", "T", "N"]
         self.tokenizer = CharacterTokenizer(characters=dna_vocab, model_max_length=max_seq_len)
-        
-        # If vocab_size is None, determine it from the tokenizer
-        if vocab_size is None:
-            # The tokenizer adds 7 special tokens plus the actual vocabulary
-            # [CLS], [SEP], [BOS], [MASK], [PAD], [RESERVED], [UNK]
-            vocab_size = len(dna_vocab) + 7
+
+        # The tokenizer adds 7 special tokens plus the actual vocabulary
+        # [CLS], [SEP], [MASK], [PAD], [UNK]
+        vocab_size = len(dna_vocab) + 4
         
         # Now initialize the model with the correct vocabulary size
         self.model = ConditionedHyenaDNA(

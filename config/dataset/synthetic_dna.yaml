@@ -4,13 +4,13 @@ _target_: datasets.synthetic_dna.SyntheticDNADataset
 # Basic parameters
 num_sets: 100           # Number of different pattern sets to generate
 set_size: ${experiment.set_size}  # Number of sequences per set (from experiment config)
-pattern_length: 20      # Length of the repeating pattern
-seq_length: 200         # Length of each sequence
+pattern_length: 4      # Length of the repeating pattern
+seq_length: 10         # Length of each sequence
 
 # Advanced parameters
 num_patterns_per_set: 1  # Number of different patterns within a set (usually 1 for simplicity)
 nucleotides: ["A", "C", "G", "T"]  # Nucleotides to use for patterns
-max_seq_length: 512     # Maximum sequence length for both encoder and HyenaDNA
+max_seq_length: 12     # Maximum sequence length for both encoder and HyenaDNA
 
 # Reproducibility
 seed: ${seed}  # Inherit from global seed 

@@ -9,7 +9,7 @@ import os
 # Import our resolver for sum operations
 import utils.hash_utils as hash_utils
 
-@hydra.main(config_path="config", config_name="simple_distn_exp", version_base="1.1")
+@hydra.main(config_path="config", config_name="config", version_base="1.1")
 def main(cfg: DictConfig):
     logger = logging.getLogger(__name__)
     logger.info("\n" + OmegaConf.to_yaml(cfg))

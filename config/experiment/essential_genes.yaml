@@ -1,0 +1,25 @@
+# @package _global_.experiment
+
+# Experiment name and description
+name: essential_genes_exp
+description: "Essential genes analysis using distribution embeddings"
+
+# Override defaults from config.yaml
+defaults:
+  - /dataset: essential_genes
+  - /encoder: resnet
+  - /model: diffusion_gnn
+  - /generator: ddpm
+  - /optimizer: adam
+  - /scheduler: cosine
+  - /training: default
+  - /mixer: none
+  - /wandb: default
+
+# Experiment-specific parameters
+latent_dim: 32
+hidden_dim: 128
+noise_dim: 32
+set_size: 100
+batch_size: 16
+lr: 1e-4 

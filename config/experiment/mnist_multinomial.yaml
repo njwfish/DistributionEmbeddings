@@ -1,0 +1,22 @@
+# @package _global_.experiment
+
+# Experiment name and description
+name: mnist_multinomial
+description: "MNIST multinomial experiment with distribution embeddings"
+
+# Override defaults from config.yaml
+defaults:
+  - /dataset: mnist_multinomial
+  - /encoder: kernel_mean
+  - /model: context_unet  # Use the context_unet model for DDPM
+  - /generator: ddpm  # Use the DDPM generator
+  - /mixer: dirichlet_k
+
+# Experiment-specific parameters
+latent_dim: 16  # Dimension of latent space for the distribution encoder
+hidden_dim: 64  # Hidden dimension for neural networks
+noise_dim: 16  # Noise dimension for generation
+set_size: 100  # Size of each set of MNIST digits
+batch_size: 10  # Batch size for training
+n_mix: 3  # Number of mixtures
+lr: 1e-4  # Learning rate

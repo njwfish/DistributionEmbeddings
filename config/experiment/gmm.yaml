@@ -1,0 +1,22 @@
+# @package _global_.experiment
+
+# Experiment name and description
+name: gmm_exp
+description: "Gaussian Mixture Model experiment with distribution embeddings"
+
+# Override defaults from config.yaml
+defaults:
+  - /dataset: mvn
+  - /encoder: gnn
+  - /model: diffusion_mlp
+  - /generator: ddpm
+  - /mixer: dirichlet_k
+
+# Experiment-specific parameters
+latent_dim: 32
+hidden_dim: 128
+noise_dim: 32
+set_size: 1000
+batch_size: 256
+n_mix: 3
+lr: 2e-4 

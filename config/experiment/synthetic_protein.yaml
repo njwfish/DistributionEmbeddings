@@ -1,0 +1,30 @@
+# @package _global_.experiment
+
+# Experiment name and description
+name: synthetic_protein_embeddings
+description: "Synthetic protein sequence generation using ESM embeddings and ProGen2"
+
+# Override defaults from config.yaml
+defaults:
+  - /dataset: synthetic_protein
+  - /encoder: esm
+  - /generator: progen2
+
+# Experiment-specific parameters
+latent_dim: 32
+hidden_dim: 256
+batch_size: 8
+set_size: 64
+lr: 2e-5  # Learning rate for protein model
+
+# ESM model settings
+esm_model_name: 'facebook/esm2_t6_8M_UR50D'
+
+# ProGen2 settings
+progen2_model_name: 'hugohrban/progen2-small'
+max_length: 12
+tokenize: true
+condition_dim: 32
+freeze_progen2: false
+condition_method: prefix
+temperature: 1.0
