@@ -8,7 +8,7 @@ defaults:
   - generator: progen2
   - optimizer: adam
   - scheduler: cosine
-  - training: fast
+  - training: default
   - wandb: default
   - mixer: none
   - override hydra/launcher: slurm
@@ -19,6 +19,10 @@ experiment:
   hidden_dim: 256
   batch_size: 4
   lr: 2e-5
+  condition_dim: 128
+  freeze_progen2: false
+  condition_method: prefix
+  temperature: 1.0
 
   esm_model_name: 'facebook/esm2_t6_8M_UR50D'
   progen2_model_name: 'hugohrban/progen2-small'
