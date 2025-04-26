@@ -1,0 +1,7 @@
+_target_: generator.wormhole.WormholeGenerator
+latent_dim: ${experiment.latent_dim}
+out_dim: ${dataset.data_shape[0]}
+set_size: ${dataset.set_size}
+layers: 2
+hidden_dim: 128
+heads: 4

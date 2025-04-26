@@ -1,5 +1,6 @@
 import torch
 import warnings
+from torch.autograd import Variable
 
 def sliced_wasserstein_distance(X1, X2, n_projections=100, p=2):
     """
@@ -99,78 +100,105 @@ def mmd(X, Y, gamma=None, p: int = 2) -> torch.Tensor:
     
     return mmd_squared
 
-def sinkhorn(
-    X,
-    Y,
-    reg = 1.,
-    max_iter=50,
-    eps = 1e-16,
-    p = 2
-):
+def sink_stab_batched(m, reg, maxiter=1000, tau=1e2, eps=1e-2, warm=None, pstep=20, device='cuda'):
     """
-    X: (n, d) tensor of source samples
-    Y: (m, d) tensor of target samples
-    reg: regularization parameter
-    Returns: Sinkhorn loss between empirical distributions of X and Y
+    stabilized sinkhorn
+    m: (b, n, m) tensor of cost matrices
+    Returns: (b) tensor of sinkhorn distances
     """
-    # Device and dtype setup
-    device = X.device
-    dtype = X.dtype
+    b, na, nb = m.shape
     
-  
-    # Create uniform distributions
-    n = X.shape[0]
-    m = Y.shape[0]
-    a = torch.ones(n, 1, device=device, dtype=dtype) 
-    b = torch.ones(m, 1, device=device, dtype=dtype) 
-
-    # Compute pairwise cost matrix (squared Euclidean)
-
-    M = torch.cdist(X, Y, p=p)**p
-    #M = pairwise_cosine_distance(X,Y)
-    #reg = 0.1 * torch.median(M)
-    #reg = 0.1 * torch.median(M)
-
-    # Compute kernel matrix with numerical stability
-    K = torch.exp(-M / (reg + eps))  # (n, m)
-
-    # Sinkhorn iterations
-    for ii in range(max_iter):
-        # uprev = u.clone()
-        # vprev = v.clone()
-
-        # Update v then u
-        a = 1 / (torch.mm(K, b) + eps)  # (m, 1)
-        b = 1 / (torch.mm(K.t(), a) + eps)  # (n, 1)
-
-        # have to comment this because we want to
-        # vmap which cannot be done through control flow
-        # Check for numerical issues
-        # if (torch.any(Ktu.abs() < stop_thresh) or 
-        #     torch.any(torch.isnan(u)) or 
-        #     torch.any(torch.isnan(v)) or 
-        #     torch.any(torch.isinf(u)) or 
-        #     torch.any(torch.isinf(v))
-        # ):
-        #    u = uprev
-        #    v = vprev
-        #    break
-
-    # Compute transport plan and loss
-    loss = torch.einsum('ij,i,j,ij->', M, a.flatten(), b.flatten(), K)
+    # init marginals
+    a = Variable(torch.ones(b, na, device=device) / na)
+    b_marg = Variable(torch.ones(b, nb, device=device) / nb)
     
-    return loss.squeeze()
-
-def sinkhorn_loss(X, Y, reg=1., max_iter=50, eps=1e-16, p=2):
-    """
-    Compute Sinkhorn loss between two sets of samples.
+    # init dual
+    if warm is None:
+        alpha = Variable(torch.zeros(b, na, device=device))
+        beta = Variable(torch.zeros(b, nb, device=device))
+    else:
+        alpha, beta = warm
     
-    Args:
-        X: (n, d) tensor of source samples
-        Y: (m, d) tensor of target samples
-        reg: regularization parameter
-        max_iter: maximum number of Sinkhorn iterations
-        eps: small constant for numerical stability
-        p: power parameter for the distance metric
+    u = Variable(torch.ones(b, na, device=device) / na)
+    v = Variable(torch.ones(b, nb, device=device) / nb)
+    
+    def get_k(alpha, beta, M):
+        return torch.exp(-(M - alpha.unsqueeze(2) - beta.unsqueeze(1)) / reg)
+    
+    def get_gamma(alpha, beta, u, v):
+        return torch.exp(-(m - alpha.unsqueeze(2) - beta.unsqueeze(1)) / reg + 
+                        torch.log(u.unsqueeze(2)) + torch.log(v.unsqueeze(1)))
+    
+    k = get_k(alpha, beta, m)
+    transp = k
+    loop = True
+    cpt = 0
+    err = torch.ones(b, device=device)
+    
+    while loop:
+        uprev, vprev = u, v
+        
+        # batched sinkhorn step
+        v = b_marg / (torch.bmm(k.transpose(1, 2), u.unsqueeze(2)).squeeze(2) + 1e-16)
+        u = a / (torch.bmm(k, v.unsqueeze(2)).squeeze(2) + 1e-16)
+        
+        # rescale if too big
+        mask = (torch.max(torch.abs(u), dim=1)[0] > tau) | (torch.max(torch.abs(v), dim=1)[0] > tau)
+        if mask.any():
+            alpha = alpha.clone()
+            beta = beta.clone()
+            u = u.clone()
+            v = v.clone()
+            k = k.clone()
+
+            alpha[mask] = alpha[mask] + reg * torch.log(u[mask])
+            beta[mask] = beta[mask] + reg * torch.log(v[mask])
+            u[mask] = torch.ones_like(u[mask]) / na
+            v[mask] = torch.ones_like(v[mask]) / nb
+            k[mask] = get_k(alpha[mask], beta[mask], m[mask])
+
+        
+        if cpt % pstep == 0:
+            transp = get_gamma(alpha, beta, u, v)
+            err = (torch.sum(transp, dim=(1, 2)) - 1).abs().pow(2)  # Assuming marginals sum to 1
+        
+        if (err.max() <= eps) or (cpt >= maxiter):
+            loop = False
+        
+        cpt += 1
+    
+    return torch.sum(get_gamma(alpha, beta, u, v) * m, dim=(1, 2))
+
+def sink_D_batched(X, Y, reg=1, maxiter=20, tau=1e2, eps=1e-2, warm=None, pstep=20, device='cuda', p=2):
+    XX = torch.cdist(X, X, p=p) 
+    YY = torch.cdist(Y, Y, p=p)  
+    XY = torch.cdist(X, Y, p=p)  
+    
+    sink_XX = sink_stab_batched(XX, reg, maxiter, tau, eps, warm, pstep, device)
+    sink_YY = sink_stab_batched(YY, reg, maxiter, tau, eps, warm, pstep, device)
+    sink_XY = sink_stab_batched(XY, reg, maxiter, tau, eps, warm, pstep, device)
+    
+    return sink_XY - 0.5 * (sink_XX + sink_YY)
+
+def pairwise_sinkhorn(X, reg=1., max_iter=100, eps=1e-2, p=2, device='cuda'):
     """
-    return 2 * sinkhorn(X, Y, reg, max_iter, eps, p) - sinkhorn(X, X, reg, max_iter, eps, p) - sinkhorn(Y, Y, reg, max_iter, eps, p)
+    X: (b, n, d) tensor
+    returns: (b, b) sinkhorn loss matrix
+    """
+    b = X.shape[0]
+    
+    # expand X to compare all pairs
+    X1 = X.unsqueeze(1).expand(-1, b, -1, -1)  # (b, b, n, d)
+    X2 = X.unsqueeze(0).expand(b, -1, -1, -1)  # (b, b, n, d)
+    
+    # flatten for vmap
+    X1_flat = X1.reshape(-1, *X.shape[1:])
+    X2_flat = X2.reshape(-1, *X.shape[1:])
+    
+    # compute all pairs
+    all_pairs = sink_D_batched(X1_flat, X2_flat, reg=reg, maxiter=max_iter, eps=eps, p=p, device=device)
+    
+    # reshape back
+    loss_matrix = all_pairs.reshape(b, b)
+    
+    return loss_matrix
