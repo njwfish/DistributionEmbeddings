@@ -1,3 +1,4 @@
+# @package _global_.model
 _target_: layers.MLP
 in_dims:
   - ${dataset.data_shape[0]}

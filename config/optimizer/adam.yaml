@@ -1,3 +1,4 @@
+# @package _global_.optimizer
 _target_: torch.optim.Adam
 _partial_: true  # Important: makes this a partial instantiation until parameters are provided
 lr: ${experiment.lr}

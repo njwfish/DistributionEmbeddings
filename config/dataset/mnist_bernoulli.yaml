@@ -1,9 +1,0 @@
-_target_: datasets.mnist.MNISTBernoulliDataset
-n_sets: 1000
-set_size: 100
-alpha: 1
-root: /orcd/data/omarabu/001/njwfish/DistributionEmbeddings/data
-train: true
-download: true
-seed: ${seed} 
-data_shape: [1, 28, 28]

@@ -1,0 +1,35 @@
+# @package _global_.experiment
+
+# Experiment name and description
+name: pubmed_exp
+description: "PubMed NLP experiment with BERT and GPT-2 for text generation"
+
+# Override defaults from config.yaml
+defaults:
+  - /dataset: pubmed
+  - /encoder: bert_document
+  - /generator: gpt2
+
+# Experiment-specific parameters
+latent_dim: 128
+hidden_dim: 256
+batch_size: 6
+lr: 2e-5
+
+# BERT settings
+bert_model_name: "bert-base-uncased"
+bert_output_dim: 768
+pooling_strategy: "cls"
+freeze_bert: false
+
+# Distribution encoder settings
+distribution_encoder_type: "gnn"
+distribution_layers: 2
+
+# GPT-2 settings
+gpt2_model_name: "gpt2"
+condition_dim: 768
+freeze_gpt2: false
+condition_method: "prefix"
+temperature: 0.8
+max_length: 128 

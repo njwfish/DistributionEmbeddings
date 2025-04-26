@@ -1,3 +1,4 @@
+# @package _global_.model
 _target_: model.unet.ContextUnet
 in_channels: 1
 n_feat: 256

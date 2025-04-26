@@ -1,3 +1,4 @@
+# @package _global_.mixer
 _target_: mixer.mixer.SetMixer
 k: ${experiment.n_mix}
 alpha: 1.0

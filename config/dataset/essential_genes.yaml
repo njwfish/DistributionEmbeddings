@@ -1,3 +1,4 @@
+# @package _global_.dataset
 _target_: datasets.essential_genes_dataset.EssentialGenesDataset
 h5ad_file: "/orcd/data/omarabu/001/njwfish/DistributionEmbeddings/data/essential_genes/essential_gene_knockouts_raw.h5ad"
 set_size: 100

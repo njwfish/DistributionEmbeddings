@@ -1,5 +1,0 @@
-# @package _global_.model
-# This file defines additional model configurations that don't fit into the encoder or generator
-# For the BERT-GPT2 model, no additional configuration is needed as it's fully defined
-# in the encoder and generator configs
-_target_: torch.nn.Module  # Placeholder, not actually used 

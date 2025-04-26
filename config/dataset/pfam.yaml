@@ -1,3 +1,4 @@
+# @package _global_.dataset
 _target_: datasets.protein.PfamDataset
 data_dir: "/orcd/data/omarabu/001/gokul/DistributionEmbeddings/data/pfam"
 set_size: 16
