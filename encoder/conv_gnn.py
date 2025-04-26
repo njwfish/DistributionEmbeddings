@@ -100,7 +100,7 @@ class ConvDistributionEncoder(nn.Module):
         # Final projection to output channels
         self.final_conv = nn.Conv2d(hidden_channels, self.out_channels, kernel_size=1)
         self.pre_pool_mlp = nn.Sequential(
-            nn.Linear(28 * 28, hidden_dim),
+            nn.Linear(height * width, hidden_dim),
             nn.GELU(),
             nn.Linear(hidden_dim, self.out_channels)
         )

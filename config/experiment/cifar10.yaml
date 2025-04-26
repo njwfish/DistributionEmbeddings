@@ -1,13 +1,13 @@
 # @package _global_.experiment
 
 # Experiment name and description
-name: mnist_multinomial
-description: "MNIST multinomial experiment with distribution embeddings"
+name: cifar10
+description: "CIFAR-10 experiment with distribution embeddings"
 
 # Override defaults from config.yaml
 defaults:
-  - /dataset: mnist
-  - /encoder: kernel_mean
+  - /dataset: cifar10
+  - /encoder: conv_gnn
   - /model: context_unet  # Use the context_unet model for DDPM
   - /generator: ddpm  # Use the DDPM generator
   - /mixer: dirichlet_k
@@ -15,8 +15,8 @@ defaults:
 # Experiment-specific parameters
 latent_dim: 16  # Dimension of latent space for the distribution encoder
 hidden_dim: 64  # Hidden dimension for neural networks
-set_size: 100  # Size of each set of MNIST digits
+set_size: 100  # Size of each set of CIFAR-10 items
 batch_size: 10  # Batch size for training
 n_mix: 3  # Number of mixtures
+lr: 2e-4  # Learning rate 
 alpha: 1.0  # Dirichlet parameter
-lr: 2e-4  # Learning rate

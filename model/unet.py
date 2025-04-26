@@ -1,6 +1,6 @@
-
 import torch
 import torch.nn as nn
+import math
 
 class ResidualConvBlock(nn.Module):
     def __init__(
@@ -91,28 +91,42 @@ class EmbedFC(nn.Module):
 
 
 class ContextUnet(nn.Module):
-    def __init__(self, in_channels, n_feat = 256, n_classes=10):
+    def __init__(self, in_channels, n_feat=256, latent_dim=10, image_size=28):
         super(ContextUnet, self).__init__()
-
+        '''
+        U-Net architecture with context label embedding
+        
+        Args:
+            in_channels: Number of input channels (e.g., 1 for MNIST, 3 for CIFAR-10)
+            n_feat: Number of features in the hidden layers
+            n_classes: Number of classes for context embedding
+            image_size: Input image size (assumes square images: image_size x image_size)
+        '''
         self.in_channels = in_channels
         self.n_feat = n_feat
-        self.n_classes = n_classes
-
+        self.latent_dim = latent_dim
+        self.image_size = image_size
+        
+        # Calculate sizes based on image_size
+        # After 2 downsamplings with MaxPool2d(2), the image size is divided by 4
+        self.bottleneck_size = image_size // 4
+        
         self.init_conv = ResidualConvBlock(in_channels, n_feat, is_res=True)
 
         self.down1 = UnetDown(n_feat, n_feat)
         self.down2 = UnetDown(n_feat, 2 * n_feat)
 
-        self.to_vec = nn.Sequential(nn.AvgPool2d(7), nn.GELU())
+        # Adaptive pooling instead of fixed size
+        self.to_vec = nn.Sequential(nn.AdaptiveAvgPool2d(1), nn.GELU())
 
         self.timeembed1 = EmbedFC(1, 2*n_feat)
         self.timeembed2 = EmbedFC(1, 1*n_feat)
-        self.contextembed1 = EmbedFC(n_classes, 2*n_feat)
-        self.contextembed2 = EmbedFC(n_classes, 1*n_feat)
+        self.contextembed1 = EmbedFC(latent_dim, 2*n_feat)
+        self.contextembed2 = EmbedFC(latent_dim, 1*n_feat)
 
+        # Dynamically sized transposed conv based on bottleneck size
         self.up0 = nn.Sequential(
-            # nn.ConvTranspose2d(6 * n_feat, 2 * n_feat, 7, 7), # when concat temb and cemb end up w 6*n_feat
-            nn.ConvTranspose2d(2 * n_feat, 2 * n_feat, 7, 7), # otherwise just have 2*n_feat
+            nn.ConvTranspose2d(2 * n_feat, 2 * n_feat, self.bottleneck_size, self.bottleneck_size),
             nn.GroupNorm(8, 2 * n_feat),
             nn.ReLU(),
         )
@@ -143,7 +157,7 @@ class ContextUnet(nn.Module):
 
         up1 = self.up0(hiddenvec)
         # up2 = self.up1(up1, down2) # if want to avoid add and multiply embeddings
-        up2 = self.up1(cemb1*up1+ temb1, down2)  # add and multiply embeddings
+        up2 = self.up1(cemb1 * up1 + temb1, down2)  # add and multiply embeddings
         up3 = self.up2(cemb2*up2+ temb2, down1)
         out = self.out(torch.cat((up3, x), 1))
         return out

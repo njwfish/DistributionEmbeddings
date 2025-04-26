@@ -1,0 +1,9 @@
+# @package _global_.dataset
+_target_: datasets.cifar10.CIFAR10Dataset
+set_size: 100
+root: /orcd/data/omarabu/001/njwfish/DistributionEmbeddings/data
+train: true
+download: true
+seed: ${seed} 
+data_shape: [3, 32, 32]  # CIFAR-10 has RGB images (3 channels) of size 32x32
+n_classes: ${experiment.n_mix} 
