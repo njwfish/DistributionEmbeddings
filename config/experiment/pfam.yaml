@@ -25,3 +25,7 @@ esm_model_name: 'facebook/esm2_t6_8M_UR50D'
 progen2_model_name: 'hugohrban/progen2-small'
 max_length: 256
 tokenize: true 
+condition_dim: 32
+freeze_progen2: false
+condition_method: prefix
+temperature: 1.0
