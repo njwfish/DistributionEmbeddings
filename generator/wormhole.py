@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from layers import SelfAttention
-from generator.losses import sinkhorn_loss, pairwise_sinkhorn
+from generator.losses import sink_D_batched, pairwise_sinkhorn
 
 
 class DistributionDecoderTx(nn.Module):
@@ -25,7 +25,6 @@ class WormholeGenerator(nn.Module):
                  set_size, layers=1, heads=4, sinkhorn_params=None):
         super().__init__()
         self.model = DistributionDecoderTx(latent_dim, out_dim, hidden_dim, set_size, layers, heads)
-        self.sinkhorn = lambda x, y : torch.vmap(sinkhorn_loss, randomness='different')(x, y)
 
     def forward(self, latent):
         return self.model(latent)
@@ -42,11 +41,11 @@ class WormholeGenerator(nn.Module):
         # rec_max = rec.amax(dim=(0,1), keepdim=True)
         # rec_scaled = 2 * (rec - rec_min) / (rec_max - rec_min) - 1
 
-        rec_loss = self.sinkhorn(rec, x)
+        rec_loss = sink_D_batched(rec, x)
         input_w2 = pairwise_sinkhorn(x)
         latent_d = torch.cdist(latent, latent)
 
-        return rec_loss.mean() + ((input_w2 - latent_d)**2).mean()/4
+        return rec_loss.mean() + ((input_w2 - latent_d)**2).mean()/2
     
     def sample(self, latent, num_samples=None):
         return self(latent)
