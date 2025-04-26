@@ -3,6 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from transformers import GPT2LMHeadModel, GPT2Config
 import numpy as np
+from transformers import GPT2Tokenizer
+
 
 class ConditionedGPT2(nn.Module):
     """GPT-2 model conditioned on a latent vector representing a document distribution."""
@@ -224,7 +226,6 @@ class GPT2Generator:
         self.max_length = max_length
         
         # Initialize tokenizer (for generation)
-        from transformers import GPT2Tokenizer
         self.tokenizer = GPT2Tokenizer.from_pretrained(gpt2_model_name)
         self.tokenizer.pad_token = self.tokenizer.eos_token
     

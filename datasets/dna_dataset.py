@@ -61,7 +61,7 @@ class DNADataset(Dataset):
     
     def _init_hyena_tokenizer(self):
         """Initialize the HyenaDNA tokenizer."""
-        from generator.hyenadna import CharacterTokenizer
+        from datasets.hyena_tokenizer import CharacterTokenizer
         
         # HyenaDNA uses a character-level tokenizer
         vocab = ["A", "C", "G", "T", "N"]

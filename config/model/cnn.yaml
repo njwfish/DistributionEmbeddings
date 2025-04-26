@@ -1,8 +1,9 @@
+# @package _global_.model
 # For image-based datasets like MNIST
 _target_: torch.nn.Sequential
 _args_:
   - _target_: torch.nn.Linear
-    in_features: ${sum:${experiment.latent_dim},${experiment.noise_dim}}
+    in_features: ${sum:${experiment.latent_dim},${experiment.latent_dim}}
     out_features: 512
   - _target_: torch.nn.ReLU
   - _target_: torch.nn.Linear

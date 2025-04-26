@@ -1,3 +1,4 @@
+# @package _global_.encoder
 _target_: encoder.conv_gnn.ConvDistributionEncoder
 in_channels: 1  # For MNIST
 hidden_channels: 32

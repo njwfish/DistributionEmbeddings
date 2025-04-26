@@ -1,3 +1,4 @@
+# @package _global_.generator
 _target_: generator.cvae.CVAE
 model: ${model}
 latent_dim: ${experiment.latent_dim}

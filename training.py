@@ -273,6 +273,8 @@ class Trainer:
                                 'set_index': set_indices
                             })
 
+                            print(df.head())
+
                             # Log a single table with both original and generated texts
                             wandb.log({
                                 "epoch/text_samples": wandb.Table(dataframe=df)
@@ -444,5 +446,4 @@ class Trainer:
                             'original': samples,
                             'generated': generated.cpu(),
                             'original_texts': raw_texts
-                        } 
-            
+                        }

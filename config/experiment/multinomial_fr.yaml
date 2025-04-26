@@ -1,0 +1,20 @@
+# @package _global_.experiment
+
+# Experiment name and description
+name: multinomial_spike
+description: "Multinomial distribution experiment with Fisher-Rao metric and DDPM generator"
+
+# Override defaults from config.yaml
+defaults:
+  - /dataset: multinomial
+  - /encoder: tx
+  - /model: diffusion_mlp
+  - /generator: ddpm
+
+# Experiment-specific parameters
+latent_dim: 16
+hidden_dim: 64
+noise_dim: 16
+set_size: 100
+batch_size: 64
+lr: 2e-4 

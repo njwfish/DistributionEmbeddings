@@ -1,3 +1,4 @@
+# @package _global_.generator
 _target_: generator.ddpm.DDPM
 model: ${model}  # This will be instantiated first
 betas: [1e-4, 0.02]

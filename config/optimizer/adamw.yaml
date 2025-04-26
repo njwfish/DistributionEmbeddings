@@ -1,3 +1,4 @@
+# @package _global_.optimizer
 _target_: torch.optim.AdamW
 _partial_: true
 lr: ${experiment.lr}
