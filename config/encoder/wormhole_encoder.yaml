@@ -1,0 +1,8 @@
+# @package _global_.encoder
+_target_: encoder.wormhole_encoder.WormholeEncoder
+data_shape: ${dataset.data_shape}
+latent_dim: ${experiment.latent_dim}
+hidden_dim: ${experiment.hidden_dim}
+set_size: ${experiment.set_size}
+layers: 2
+heads: 4 
