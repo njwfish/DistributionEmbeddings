@@ -261,7 +261,7 @@ def batch_compute_metrics(results, metrics_to_compute=None, sample_batch_size=10
     
     return metrics
 
-def compute_metrics(results, metrics_to_compute=None, batch_size=10_000):
+def compute_metrics(results, metrics_to_compute=None, batch_size=10, sample_batch_size=10_000):
     """
     Compute evaluation metrics for distribution embeddings.
     This is a wrapper around batch_compute_metrics with legacy behavior.
@@ -281,8 +281,8 @@ def compute_metrics(results, metrics_to_compute=None, batch_size=10_000):
     return batch_compute_metrics(
         results,
         metrics_to_compute=metrics_to_compute,
-        sample_batch_size=batch_size,
-        eval_batch_size=10  # Default to processing 10 sets at a time
+        eval_batch_size=batch_size,
+        sample_batch_size=sample_batch_size
     )
 
 def batch_encode_samples(enc, sample_sets, device, max_encode_samples=50_000, batch_size=10):
