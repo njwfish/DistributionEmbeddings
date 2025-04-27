@@ -3,11 +3,14 @@ import torch.nn as nn
 import numpy as np
 
 class KMEEncoder(nn.Module):
-    def __init__(self, gamma=0.1, d=32, seed=None, device='cuda'):
+    def __init__(self, data_shape, gamma=0.1, d=32, seed=None, device='cuda'):
         super().__init__()
         self.gamma = gamma
         self.d = d//2
-        self.seed = seed  # optional! for reproducibility
+        self.seed = seed
+        self.N_dims = np.prod(data_shape)
+        self.scale = 1/self.gamma
+        self.W = torch.rand_n(self.N_dims, self.d) * self.scale
 
     def forward(self, x):
         # x: (batch, set_size, N_dims)
@@ -16,13 +19,7 @@ class KMEEncoder(nn.Module):
 
         batch, set_size, N_dims = x.shape
 
-        # RFF 
-        if self.seed is not None:
-            torch.manual_seed(self.seed)
-        scale = 1.0 / self.gamma
-        W = torch.randn(N_dims, self.d, device=x.device) * scale  # (N_dims, d)
-
-        XW = torch.matmul(x, W)  # (batch, set_size, d)
+        XW = torch.matmul(x, self.W)  # (batch, set_size, d)
         cos = torch.cos(XW)
         sin = torch.sin(XW)
         phi = torch.cat([cos, sin], dim=-1)  # (batch, set_size, 2d)
