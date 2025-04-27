@@ -17,10 +17,15 @@ This repository contains implementation of Distribution Embeddings for various s
 │   ├── scheduler/               # Learning rate scheduler configurations
 │   ├── training/                # Training configurations
 │   ├── wandb/                   # Weights & Biases configurations
-│   ├── simple_distn_exp.yaml    # Configuration for simple distribution experiments
-│   ├── pubmed_nlp.yaml          # Configuration for PubMed NLP experiments
-│   ├── mnist_ddpm.yaml          # Configuration for MNIST with diffusion models
-│   └── essential_genes_exp.yaml # Configuration for essential genes experiments
+│   ├── hydra/                   # Hydra-specific configurations (incl. Slurm)
+│   ├── experiment/              # Experiment-specific configurations
+│   │   ├── mvn.yaml             # Multivariate normal distribution experiment
+│   │   ├── gmm.yaml             # Gaussian Mixture Model experiment
+│   │   ├── normal.yaml          # Normal distribution experiment
+│   │   ├── pubmed.yaml          # PubMed NLP experiment
+│   │   ├── essential_genes.yaml # Essential genes experiment
+│   │   └── ...                  # Other experiment configurations
+│   └── config.yaml              # Base configuration file
 ├── datasets/                    # Dataset implementations
 │   ├── distribution_datasets.py # Statistical distribution datasets
 │   ├── mnist.py                 # MNIST dataset utilities
@@ -38,6 +43,7 @@ This repository contains implementation of Distribution Embeddings for various s
 ├── model/                       # Model architectures
 │   ├── gnn.py                   # Graph neural network models
 │   └── unet.py                  # U-Net architecture for diffusion models
+├── mixer/                       # Data mixing strategies
 ├── utils/                       # Utility functions
 │   ├── hash_utils.py            # Utilities for config hashing and output tracking
 │   ├── experiment_utils.py      # Experiment management utilities
@@ -46,6 +52,7 @@ This repository contains implementation of Distribution Embeddings for various s
 ├── notebooks/                   # Jupyter notebooks for examples and experiments
 ├── outputs/                     # Experiment outputs directory
 ├── data/                        # Data storage directory
+├── multirun/                    # Directory for Hydra multirun output
 ├── layers.py                    # Neural network layer implementations
 ├── main.py                      # Main training script
 ├── training.py                  # Training implementation
@@ -58,6 +65,7 @@ This repository contains implementation of Distribution Embeddings for various s
 
 This project uses [Hydra](https://hydra.cc/) for configuration management. The configuration is organized into groups:
 
+- **experiment**: High-level experiment configurations that combine other config groups
 - **dataset**: Data generation settings (distribution type, parameters, datasets)
 - **encoder**: Encoder architecture configuration
 - **generator**: Generator architecture configuration
@@ -65,7 +73,44 @@ This project uses [Hydra](https://hydra.cc/) for configuration management. The c
 - **training**: Training parameters (learning rate, epochs, loss function)
 - **optimizer**: Optimizer configuration (Adam, SGD, etc.)
 - **scheduler**: Learning rate scheduler configuration
+- **mixer**: Data mixing strategies for distribution datasets
 - **wandb**: Weights & Biases logging settings
+- **hydra**: Hydra-specific configurations (including Slurm launcher)
+
+The configuration system follows Hydra's compositional pattern:
+
+1. Base defaults are specified in `config/config.yaml`
+2. Experiment-specific configurations are in `config/experiment/*.yaml`
+3. Component configurations are in their respective directories (e.g., `config/encoder/`)
+
+Each experiment configuration (`config/experiment/*.yaml`) typically:
+- Sets the experiment name and description
+- Overrides default configurations for dataset, encoder, model, etc.
+- Defines experiment-specific parameters like latent dimensions, batch size, etc.
+
+For example, a typical experiment config looks like:
+
+```yaml
+# @package _global_.experiment
+
+# Experiment name and description
+name: mvn_exp
+description: "Multivariate normal distribution experiment"
+
+# Override defaults from config.yaml
+defaults:
+  - /dataset: mvn
+  - /encoder: resnet
+  - /model: diffusion_mlp
+  - /generator: ddpm
+
+# Experiment-specific parameters
+latent_dim: 64
+hidden_dim: 128
+set_size: 1000
+batch_size: 256
+lr: 0.0002
+```
 
 All configuration files are stored in the `config/` directory with a modular structure that allows easy composition and overriding.
 
@@ -84,13 +129,16 @@ Key dependencies include:
 - Weights & Biases for experiment tracking
 - Transformers library for NLP models (BERT and GPT-2)
 - scikit-learn and pandas for data processing
+- Submitit for Slurm job submission
 
-### Hydra Usage
+## Usage
 
-Hydra allows for flexible configuration management through command-line arguments:
+### Basic Usage
+
+The project uses [Hydra](https://hydra.cc/) for configuration management. At its simplest, you can run experiments with:
 
 ```bash
-# Basic usage with default configuration (simple_distn_exp.yaml)
+# Basic usage with default configuration
 python main.py
 
 # Override specific parameters
@@ -98,16 +146,86 @@ python main.py training.num_epochs=200 optimizer.lr=0.001
 
 # Use a specific configuration file
 python main.py --config-name pubmed_nlp
+```
 
+### Advanced Usage
+
+For more advanced usage, you can:
+
+```bash
 # Override nested parameters
 python main.py dataset.params.mean=0.0 dataset.params.std=1.0
-
-# Run multiple experiments with different parameters
-python main.py --multirun seed=42,43,44,45,46
 
 # Use different config groups
 python main.py dataset=normal encoder=mlp generator=mlp
 ```
+
+### Multirun Mode and Slurm Integration
+
+The project has built-in support for running multiple experiments and scaling to a Slurm cluster:
+
+#### Local Multirun
+
+For running multiple configurations locally:
+
+```bash
+# Simple multirun with different seeds
+python main.py --multirun seed=42,43,44,45,46
+
+# Grid search over multiple parameters
+python main.py --multirun dataset=normal,poisson,multinomial encoder=mlp,transformer
+```
+
+#### Running on Slurm Cluster
+
+For large-scale experiments, the project uses Hydra's Submitit launcher to submit jobs to a Slurm cluster:
+
+```bash
+# Run a multirun experiment on Slurm
+python main.py --multirun hydra/launcher=slurm dataset=normal,poisson,multinomial
+```
+
+The Slurm configuration can be found in `config/hydra/launcher/slurm.yaml`. Default settings:
+
+```yaml
+partition: ou_bcs_low           # Slurm partition
+gpus_per_node: 1                # Number of GPUs per node
+cpus_per_task: 5                # CPUs per task
+mem_gb: 256                     # Memory per node (GB)
+timeout_min: 720                # Timeout (minutes)
+array_parallelism: 8            # Maximum concurrent jobs
+```
+
+To customize Slurm settings for a specific run:
+
+```bash
+# Customize Slurm settings
+python main.py --multirun \
+  hydra/launcher=slurm \
+  hydra.launcher.partition=your_partition \
+  hydra.launcher.gpus_per_node=2 \
+  hydra.launcher.timeout_min=1440 \
+  hydra.launcher.mem_gb=128 \
+  experiment=gmm
+```
+
+
+### Experiment Management CLI
+
+The `experiment_cli.py` script provides a powerful command-line interface for managing experiments:
+
+```bash
+# List all experiments with key metadata
+python experiment_cli.py list
+
+# Show detailed information about a specific experiment
+python experiment_cli.py show experiment_name_f7c3a9b42d
+
+# Compare two experiments
+python experiment_cli.py compare experiment1 experiment2
+```
+
+For more details on the experiment management system, see the "Experiment Management" section below.
 
 ### Output Structure
 
@@ -115,32 +233,12 @@ The project uses a sophisticated hash-based output tracking system that organize
 
 ```
 outputs/
-├── experiment_name_[hash]/       # Hash-based experiment directories
-│   ├── config.yaml               # Complete experiment configuration 
-│   ├── best_model.pt             # Best model checkpoint
-│   ├── checkpoint_*.pt           # Training checkpoints at different epochs
-│   ├── metrics.json              # Evaluation metrics
-│   └── plots/                    # Generated visualizations
-└── named_experiment_dirs/        # Directories without hash (for ongoing experiments)
-│   ├── YYYY-MM-DD_HH-MM-SS/      # Timestamped run directories
-│   │   ├── .hydra/               # Hydra configuration files
-│   │   │   ├── config.yaml       # Complete configuration
-│   │   │   ├── hydra.yaml        # Hydra configuration
-│   │   │   └── overrides.yaml    # Command-line overrides
-│   │   ├── wandb/                # Weights & Biases run data
-│   │   ├── data/                 # Dataset-specific files
-│   │   ├── main.log              # Log output
-│   │   ├── model_checkpoints/    # Saved model states
-│   │   └── visualizations/       # Generated plots and samples
-│   └── ...
-└── multirun/                     # For Hydra multirun experiments (outside outputs/)
-    ├── YYYY-MM-DD/
-    │   ├── HH-MM-SS/
-    │   │   ├── 0/...             # First configuration run
-    │   │   ├── 1/...             # Second configuration run
-    │   │   └── ...
-    │   └── ...
-    └── ...
+└── experiment_name_[hash]/       # Hash-based experiment directories
+    ├── config.yaml               # Complete experiment configuration 
+    ├── best_model.pt             # Best model checkpoint
+    ├── checkpoint_*.pt           # Training checkpoints at different epochs
+    ├── metrics.json              # Evaluation metrics
+
 ```
 
 The output system has several layers of organization:
@@ -196,103 +294,151 @@ The trainer will locate the existing directory using the configuration hash, loa
 
 ## Experiment Types
 
-### Statistical Distribution Modeling
+The project contains a variety of experiment configurations in the `config/experiment/` directory:
 
-The core functionality of this project is modeling statistical distributions using neural networks.
+### Statistical Distribution Experiments
 
-#### Normal Distribution Experiments
-
-Train a model to embed and generate normal distributions:
+#### Multivariate Normal Distribution (MVN)
 
 ```bash
-# Basic normal distribution experiment
-python main.py dataset=normal
+# Run the multivariate normal distribution experiment
+python main.py experiment=mvn
 
-# Customize distribution parameters
-python main.py dataset=normal dataset.params.dim=10 dataset.params.num_samples=100
+# Customize MVN experiment parameters
+python main.py experiment=mvn experiment.latent_dim=32 experiment.set_size=500
 ```
 
-The model learns to:
-- Encode sets of samples drawn from normal distributions into a latent space
-- Generate new sample sets that match the distribution parameters
-- Interpolate between different normal distributions
+The MVN experiment models multivariate normal distributions using:
+- Resnet-based distribution encoder
+- Diffusion model (DDPM) generator
+- MLP-based model architecture
 
-#### Poisson Distribution Experiments
+#### Gaussian Mixture Model (GMM)
 
 ```bash
-# Train with Poisson distributions
-python main.py dataset=poisson
+# Run the Gaussian mixture model experiment
+python main.py experiment=gmm
 
-# Adjust lambda parameter range
-python main.py dataset=poisson dataset.params.lambda_min=1 dataset.params.lambda_max=20
+# Customize GMM parameters
+python main.py experiment=gmm experiment.n_mix=5 experiment.alpha=0.8
 ```
 
-#### Multinomial Distribution Experiments
+The GMM experiment uses a Dirichlet mixer to create mixtures of Gaussian distributions.
+
+#### Normal Distribution with Wasserstein Generator
 
 ```bash
-# Train with multinomial distributions
-python main.py dataset=multinomial
+# Run normal distribution experiment with Wasserstein distance
+python main.py experiment=normal
 
-# Set category count and probability parameters
-python main.py dataset=multinomial dataset.params.num_categories=10
+# Customize normal distribution experiment
+python main.py experiment=normal experiment.hidden_dim=128 generator=wasserstein
 ```
 
-### MNIST Distribution Experiments
-
-The project includes functionality to model the distribution of MNIST digits:
+#### Multinomial with Fisher-Rao Metric
 
 ```bash
-# Train with MNIST dataset
-python main.py dataset=mnist
-
-# Modify sample count per distribution
-python main.py dataset=mnist dataset.set_size=50
+# Run multinomial distribution with Fisher-Rao metric
+python main.py experiment=multinomial_fr
 ```
 
-This experiment encodes sets of MNIST images with the same digit label and learns to generate new images that match the distribution of the original set.
+### Computer Vision Experiments
 
-The MNIST experiment demonstrates the use of a diffusion model for distribution generation.
-
-### Essential Genes Experiments
-
-The project also includes functionality for analyzing essential genes:
+#### MNIST PCA Experiment
 
 ```bash
-# Run with essential genes dataset
-python main.py --config-name essential_genes_exp
-
-# Customize gene dataset parameters
-python main.py --config-name essential_genes_exp generator=ddpm model=diffusion_gnn training.eval_interval=100 training.num_epochs=1000
+# Run MNIST PCA experiment
+python main.py experiment=mnist_pca
 ```
 
-We have developed a special GNN model for this diffusion problem that side steps the infomation bottleneck in more staightforward approaches to single-cell gene expression modeling.
+Models the distribution of MNIST digits using PCA-based dimensionality reduction.
 
-### NLP Document Distribution Modeling
-
-This project includes an NLP example for modeling document distributions using BERT and GPT-2. The example uses the PubMed dataset, organizing documents by MeSH (Medical Subject Heading) tags to form document sets.
-
-#### Architecture
-
-The NLP document distribution model consists of:
-
-1. **BERT Document Encoder**: Processes each document using BERT and extracts document features
-2. **Distribution Encoder**: Encodes the set of document features into a distribution embedding
-3. **GPT-2 Generator**: Generates new text samples conditioned on the distribution embedding
-
-#### Running the PubMed Example
+#### MNIST Multinomial
 
 ```bash
-# Train with default PubMed configuration
-python main.py --config-name pubmed_nlp
+# Run MNIST multinomial experiment
+python main.py experiment=mnist_multinomial
+```
+
+Treats MNIST data as multinomial distributions for modeling.
+
+#### CIFAR-10 and Fashion MNIST
+
+```bash
+# Run CIFAR-10 experiment
+python main.py experiment=cifar10
+
+# Run Fashion MNIST experiment
+python main.py experiment=fashion_mnist
+```
+
+Both provide image distribution embedding experiments with different datasets.
+
+### Biological Sequence Experiments
+
+#### Pfam Protein Families
+
+```bash
+# Run Pfam protein families experiment
+python main.py experiment=pfam
+```
+
+Uses protein language models (ESM and ProGen2) for protein family distribution modeling.
+
+#### Synthetic DNA and Protein Generation
+
+```bash
+# Run synthetic protein sequence generation
+python main.py experiment=synthetic_protein
+
+# Run synthetic DNA sequence generation
+python main.py experiment=synthetic_dna
+```
+
+Generate synthetic biological sequences from distribution embeddings.
+
+#### DNA Methylation Analysis
+
+```bash
+# Run DNA methylation analysis
+python main.py experiment=methylation
+```
+
+Models the distribution of DNA methylation patterns.
+
+#### Essential Genes Analysis
+
+```bash
+# Run essential genes analysis
+python main.py experiment=essential_genes
+
+# Customize essential genes experiment
+python main.py experiment=essential_genes generator=ddpm model=diffusion_gnn
+```
+
+Uses a specialized graph neural network for modeling essential gene patterns, bypassing the typical information bottleneck in single-cell gene expression modeling.
+
+### Natural Language Processing Experiments
+
+#### PubMed Document Distribution
+
+```bash
+# Run PubMed NLP experiment
+python main.py experiment=pubmed
 
 # Customize BERT and GPT-2 settings
-python main.py --config-name pubmed_nlp experiment.bert_model_name=bert-base-uncased experiment.freeze_bert=false
+python main.py experiment=pubmed experiment.bert_model_name=bert-base-uncased experiment.freeze_bert=false
 ```
 
-The model learns to:
-- Embed sets of documents (sharing the same MeSH tag) into a common latent space
-- Generate new documents that reflect the distribution of documents in the original set
-- Capture the semantic characteristics of document sets
+The PubMed experiment embeds and generates scientific abstracts using:
+- BERT-based document encoder
+- Distribution encoder to capture document set characteristics
+- GPT-2 generator to produce new documents
+
+The NLP experiment architecture:
+1. **BERT Document Encoder**: Processes each document and extracts features
+2. **Distribution Encoder**: Encodes the set of document features
+3. **GPT-2 Generator**: Generates new documents from the distribution embedding
 
 ## Experiment Management
 
