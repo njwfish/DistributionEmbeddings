@@ -53,17 +53,18 @@ def analyze_plate_structure(base_dir='../data/ops', screen='screenA'):
     
     return pd.DataFrame(plates)
 
-def get_image_path(plate, well, site, channel, base_dir='../data/ops', screen='screenA'):
+def get_image_path(plate, well, site, channel, base_dir='../data/ops', screen='screenA', tile=None):
     """
     Construct the path to an image based on metadata.
     
     Args:
         plate: Plate name (e.g., '20200202_6W-LaC024A')
         well: Well ID (e.g., 'A1')
-        site: Site number
+        site: Site number (note: this appears to be different from the Site-X in filenames)
         channel: Channel name ('DAPI-GFP', 'A594', or 'AF750')
         base_dir: Base directory where data is stored
         screen: Screen name
+        tile: Tile number (this is what appears as Site-X in filenames)
         
     Returns:
         Full path to the image file or None if not found
@@ -78,17 +79,20 @@ def get_image_path(plate, well, site, channel, base_dir='../data/ops', screen='s
     # Find channel directories
     channel_dirs = os.listdir(input_dir)
     
+    # Use tile instead of site if provided, otherwise use site
+    site_number = tile if tile is not None else site
+    
     for channel_dir in channel_dirs:
         channel_dir_path = os.path.join(input_dir, channel_dir)
         
         # Construct possible file patterns based on the channel directory name
         if channel_dir == 'DAPI-GFP-A594-AF750':
-            file_pattern = f"20X_DAPI-GFP-A594-AF750_{well}_{channel}_Site-{site}.tif"
+            file_pattern = f"20X_DAPI-GFP-A594-AF750_{well}_{channel}_Site-{site_number}.tif"
         elif channel_dir == 'A594-AF750' and channel in ['A594', 'AF750']:
-            file_pattern = f"20X_A594-AF750_{well}_{channel}_Site-{site}.tif"
+            file_pattern = f"20X_A594-AF750_{well}_{channel}_Site-{site_number}.tif"
         else:
             # Try a generic pattern if none of the above match
-            file_pattern = f"*_{well}_{channel}_Site-{site}.tif"
+            file_pattern = f"*_{well}_{channel}_Site-{site_number}.tif"
         
         # Check if the file exists
         file_path = os.path.join(channel_dir_path, file_pattern)
@@ -99,7 +103,7 @@ def get_image_path(plate, well, site, channel, base_dir='../data/ops', screen='s
     
     return None
 
-def get_available_channels(plate, well, site, base_dir='../data/ops', screen='screenA'):
+def get_available_channels(plate, well, site, base_dir='../data/ops', screen='screenA', tile=None):
     """
     Find which channels are available for a given plate, well, and site.
     
@@ -109,6 +113,7 @@ def get_available_channels(plate, well, site, base_dir='../data/ops', screen='sc
         site: Site number
         base_dir: Base directory where data is stored
         screen: Screen name
+        tile: Tile number (used for filename construction)
         
     Returns:
         List of available channels
@@ -117,14 +122,14 @@ def get_available_channels(plate, well, site, base_dir='../data/ops', screen='sc
     available_channels = []
     
     for channel in channels:
-        path = get_image_path(plate, well, site, channel, base_dir, screen)
+        path = get_image_path(plate, well, site, channel, base_dir, screen, tile)
         if path and os.path.exists(path):
             available_channels.append(channel)
     
     return available_channels
 
 def extract_cell_from_site(plate, well, site, cell_bounds, channels=None, 
-                          pad=5, base_dir='../data/ops', screen='screenA'):
+                          pad=5, base_dir='../data/ops', screen='screenA', tile=None):
     """
     Extract a cell image from specified site using bounding box coordinates.
     
@@ -137,6 +142,7 @@ def extract_cell_from_site(plate, well, site, cell_bounds, channels=None,
         pad: Number of pixels to pad around the bounding box
         base_dir: Base directory where data is stored
         screen: Screen name
+        tile: Tile number (used for filename construction)
         
     Returns:
         Dictionary of numpy arrays for each channel
@@ -152,7 +158,7 @@ def extract_cell_from_site(plate, well, site, cell_bounds, channels=None,
     
     # Find available channels if not specified
     if channels is None:
-        channels = get_available_channels(plate, well, site, base_dir, screen)
+        channels = get_available_channels(plate, well, site, base_dir, screen, tile)
     
     # Extract images for each channel
     cell_images = {}
@@ -160,7 +166,7 @@ def extract_cell_from_site(plate, well, site, cell_bounds, channels=None,
     for channel in channels:
         try:
             # Get full image path
-            image_path = get_image_path(plate, well, site, channel, base_dir, screen)
+            image_path = get_image_path(plate, well, site, channel, base_dir, screen, tile)
             
             # Check if file exists
             if not image_path or not os.path.exists(image_path):
@@ -180,26 +186,20 @@ def extract_cell_from_site(plate, well, site, cell_bounds, channels=None,
                 # (time points, channels, height, width)
                 if len(full_image.shape) == 4 and full_image.shape[1] == 2:
                     # Extract DAPI (take first time point, first channel)
-                    dapi_image = full_image[:, 0]
-                    img = dapi_image[:, min_row:max_row, min_col:max_col]
-                    # transpose the image to be (height, width, channels)
-                    cell_images['DAPI'] = np.transpose(img, (1, 2, 0))
+                    dapi_image = full_image[0, 0]  # Just take first timepoint, first channel
+                    cell_images['DAPI'] = dapi_image[min_row:max_row, min_col:max_col]
                     
                     # Extract GFP (take first time point, second channel)
-                    gfp_image = full_image[:, 1] 
-                    img = gfp_image[:, min_row:max_row, min_col:max_col]
-                    # transpose the image to be (height, width, channels)
-                    cell_images['GFP'] = np.transpose(img, (1, 2, 0))
+                    gfp_image = full_image[0, 1]  # Just take first timepoint, second channel
+                    cell_images['GFP'] = gfp_image[min_row:max_row, min_col:max_col]
                 else:
                     raise ValueError(f"Unexpected image shape for channel {channel}: {full_image.shape}")
             else:
                 # For A594 and AF750 with shape (2960, 2960, 4)
                 # This appears to be RGB + alpha channel format
                 if len(full_image.shape) == 3 and full_image.shape[2] == 4:
-                    # Extract RGB data, ignoring alpha channel
-                    # For consistency in later processing, just take the RED channel (index 0)
-                    # as these are grayscale images stored in RGBA format
-                    cell_images[channel] = full_image[min_row:max_row, min_col:max_col]
+                    # Extract just the first channel (red) as it's likely grayscale stored in RGBA
+                    cell_images[channel] = full_image[min_row:max_row, min_col:max_col, 0]
                 else:
                     raise ValueError(f"Unexpected image shape for channel {channel}: {full_image.shape}")
             
