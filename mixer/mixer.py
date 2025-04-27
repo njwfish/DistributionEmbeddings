@@ -43,6 +43,44 @@ def generate_k_sparse_dirichlet_probs(
     
     return mix_probs
 
+import torch
+import torch.nn.functional as F
+
+import torch
+
+def rowwise_unique(mat, k):
+    n_rows, n_cols = mat.shape
+    # Sort along rows
+    sorted_mat, _ = torch.sort(mat, dim=1)
+    
+    # Find where values change within each row
+    diffs = torch.ones_like(sorted_mat, dtype=torch.bool)
+    diffs[:, 1:] = sorted_mat[:, 1:] != sorted_mat[:, :-1]
+    
+    # Get indices of the unique elements
+    idx = torch.arange(n_cols, device=mat.device).expand(n_rows, -1)
+    idx = idx.masked_fill(~diffs, n_cols)  # mask duplicates with large index
+    idx_sorted, sort_idx = torch.sort(idx, dim=1)
+    
+    # Use the sorted indices to gather unique values
+    sorted_mat_gathered = torch.gather(sorted_mat, 1, sort_idx)
+    
+    # Take first k columns
+    result = sorted_mat_gathered[:, :k]
+    
+    # If there are fewer uniques than k, repeat the last valid element
+    # Find how many valid (non-masked) values per row
+    valid_counts = (idx_sorted < n_cols).sum(dim=1)
+    needs_padding = valid_counts < k
+    if needs_padding.any():
+        last_valid_idx = valid_counts.clamp(max=n_cols-1) - 1
+        last_valid_vals = torch.gather(sorted_mat, 1, last_valid_idx.unsqueeze(1)).expand(-1, k)
+        mask = torch.arange(k, device=mat.device).expand(n_rows, -1) >= valid_counts.unsqueeze(1)
+        result = torch.where(mask, last_valid_vals, result)
+    
+    return result
+
+
 
 def mix_batch_sets(
         data, 
@@ -112,6 +150,9 @@ def mix_batch_sets(
                 # Check if first two dimensions match batch_size and set_size
                 if value.shape[:2] == (batch_size, set_size):
                     mixed_data[key] = value[source_set_indices, source_point_indices]
+                elif value.shape[0] == batch_size:
+                    source_set_unique = rowwise_unique(source_set_indices, k)
+                    mixed_data[key] = value[source_set_unique]
                 else:
                     mixed_data[key] = value
             else:
@@ -336,7 +377,9 @@ class SetMixer:
             mixed_set_size=self.mixed_set_size,
             n_mixed_sets=self.n_mixed_sets,
             replacement=self.replacement,
-            k=self.k)
+            k=self.k,
+            alpha=self.alpha
+        )
 
 
 
