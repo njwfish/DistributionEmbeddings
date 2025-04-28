@@ -42,8 +42,8 @@ class WormholeGenerator(nn.Module):
         # rec_max = rec.amax(dim=(0,1), keepdim=True)
         # rec_scaled = 2 * (rec - rec_min) / (rec_max - rec_min) - 1
         
-        rec_loss = sink_D_batched(rec, x, device=latent.device)
-        input_w2 = pairwise_sinkhorn(x, device=latent.device)
+        rec_loss = sink_D_batched(rec, x)
+        input_w2 = pairwise_sinkhorn(x)
         latent_d = torch.cdist(latent, latent)
 
         return rec_loss.mean() + ((input_w2 - latent_d)**2).mean()/2
