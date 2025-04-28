@@ -10,7 +10,8 @@ class KMEEncoder(nn.Module):
         self.seed = seed
         self.N_dims = np.prod(data_shape)
         self.scale = 1/self.gamma
-        self.W = torch.rand_n(self.N_dims, self.d) * self.scale
+        self.W = torch.randn(self.N_dims, self.d) * self.scale
+        self.W = self.W.to(device)
 
     def forward(self, x):
         # x: (batch, set_size, N_dims)

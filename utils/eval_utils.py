@@ -2,7 +2,8 @@ import torch
 import numpy as np
 from tqdm import tqdm
 import matplotlib.pyplot as plt
-from generator.losses import sliced_wasserstein_distance, mmd, sink_D_batched
+from generator.losses import sliced_wasserstein_distance, mmd
+from geomloss import SamplesLoss
 
 
 def compute_distribution_metrics(distribution_pairs, metrics_to_compute=None, batch_size=10, sample_batch_size=10_000):
@@ -61,7 +62,7 @@ def compute_distribution_metrics(distribution_pairs, metrics_to_compute=None, ba
     
     return results
 
-def compute_sinkhorn_distance(original_samples, resamples, batch_size=10_000, reg=1.0, maxiter=100):
+def compute_sinkhorn_distance(original_samples, resamples, batch_size=10_000):
     """
     Compute the Sinkhorn distance between original samples and resamples.
     
@@ -75,6 +76,9 @@ def compute_sinkhorn_distance(original_samples, resamples, batch_size=10_000, re
     Returns:
         Tensor of Sinkhorn distances [batch_size]
     """
+
+    sink = SamplesLoss('sinkhorn', p=2, scaling=0.9)
+
     with torch.no_grad():
         # Make sure inputs have the right shape (add batch dimension if needed)
         if original_samples.dim() == 2:
@@ -86,11 +90,9 @@ def compute_sinkhorn_distance(original_samples, resamples, batch_size=10_000, re
         original_samples = original_samples[:, :batch_size, :]
         resamples = resamples[:, :batch_size, :]
         
-        sink = sink_D_batched(
+        sink = sink(
             original_samples,
-            resamples,
-            reg=reg,
-            maxiter=maxiter
+            resamples
         )
         
         return sink
