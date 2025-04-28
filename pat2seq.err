@@ -1,0 +1,33 @@
+  0%|          | 0/507 [00:00<?, ?it/s]Exception in thread Thread-1:
+Traceback (most recent call last):
+  File "/orcd/home/002/gokulg/miniforge3/envs/wgbs/lib/python3.11/threading.py", line 1045, in _bootstrap_inner
+  0%|          | 0/507 [03:34<?, ?it/s]
+    self.run()
+  File "/orcd/home/002/gokulg/miniforge3/envs/wgbs/lib/python3.11/concurrent/futures/process.py", line 347, in run
+    self.terminate_broken(cause)
+  File "/orcd/home/002/gokulg/miniforge3/envs/wgbs/lib/python3.11/concurrent/futures/process.py", line 499, in terminate_broken
+    work_item.future.set_exception(bpe)
+  File "/orcd/home/002/gokulg/miniforge3/envs/wgbs/lib/python3.11/concurrent/futures/_base.py", line 559, in set_exception
+    raise InvalidStateError('{}: {!r}'.format(self._state, self))
+concurrent.futures._base.InvalidStateError: CANCELLED: <Future at 0x14568ca4fcd0 state=cancelled>
+Traceback (most recent call last):
+  File "/orcd/data/omarabu/001/gokul/DistributionEmbeddings/datasets/preprocessing/pat_to_seq.py", line 88, in <module>
+    list(tqdm(executor.map(process_file, files), total=len(files)))
+  File "/orcd/home/002/gokulg/miniforge3/envs/wgbs/lib/python3.11/site-packages/tqdm/std.py", line 1181, in __iter__
+    for obj in iterable:
+  File "/orcd/home/002/gokulg/miniforge3/envs/wgbs/lib/python3.11/concurrent/futures/process.py", line 620, in _chain_from_iterable_of_lists
+    for element in iterable:
+  File "/orcd/home/002/gokulg/miniforge3/envs/wgbs/lib/python3.11/concurrent/futures/_base.py", line 619, in result_iterator
+    yield _result_or_cancel(fs.pop())
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/orcd/home/002/gokulg/miniforge3/envs/wgbs/lib/python3.11/concurrent/futures/_base.py", line 317, in _result_or_cancel
+    return fut.result(timeout)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/orcd/home/002/gokulg/miniforge3/envs/wgbs/lib/python3.11/concurrent/futures/_base.py", line 456, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "/orcd/home/002/gokulg/miniforge3/envs/wgbs/lib/python3.11/concurrent/futures/_base.py", line 401, in __get_result
+    raise self._exception
+concurrent.futures.process.BrokenProcessPool: A process in the process pool was terminated abruptly while the future was running or pending.
+slurmstepd: error: *** JOB 65461874 ON node2803 CANCELLED AT 2025-04-28T08:33:44 DUE TO TIME LIMIT ***
+slurmstepd: error: Detected 90 oom_kill events in StepId=65461874.batch. Some of the step tasks have been OOM Killed.
