@@ -8,7 +8,6 @@ description: "Pfam protein families experiment using ESM embeddings and ProGen2 
 defaults:
   - /dataset: pfam
   - /encoder: esm
-  - /model: bert_gpt2_mlp  # Placeholder, not actually used
   - /generator: progen2
   - /scheduler: cosine
 
@@ -24,7 +23,7 @@ esm_model_name: 'facebook/esm2_t6_8M_UR50D'
 # ProGen2 settings
 progen2_model_name: 'hugohrban/progen2-small'
 max_length: 256
-tokenize: true 
+tokenize: false 
 condition_dim: 32
 freeze_progen2: false
 condition_method: prefix
