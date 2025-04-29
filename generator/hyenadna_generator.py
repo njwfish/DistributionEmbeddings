@@ -793,9 +793,10 @@ class HyenaDNAGenerator:
         dna_vocab = ["A", "C", "G", "T", "N"]
         self.tokenizer = CharacterTokenizer(characters=dna_vocab, model_max_length=max_seq_len)
 
-        # The tokenizer adds 7 special tokens plus the actual vocabulary
+        # The tokenizer adds 5 special tokens plus the actual vocabulary
         # [CLS], [SEP], [MASK], [PAD], [UNK]
-        vocab_size = len(dna_vocab) + 4
+        vocab_size = len(dna_vocab) + 5
+
         
         # Now initialize the model with the correct vocabulary size
         self.model = ConditionedHyenaDNA(
@@ -860,7 +861,6 @@ class HyenaDNAGenerator:
         flat_logits = shift_logits.reshape(-1, shift_logits.size(-1))
         flat_labels = shift_labels.reshape(-1)
         flat_attention = shift_attention_mask.reshape(-1)
-        
 
         # Only compute loss on tokens that are valid (attention mask = 1)
         loss_fct = nn.CrossEntropyLoss(reduction='mean')

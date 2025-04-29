@@ -27,6 +27,7 @@ class CharacterTokenizer(PreTrainedTokenizer):
                     "[SEP]": 1
                     "[MASK]": 2
                     "[PAD]": 3
+                    "[UNK]": 4
                 an id (starting at 3) will be assigned to each character.
             model_max_length (int): Model maximum sequence length.
         """
@@ -59,6 +60,7 @@ class CharacterTokenizer(PreTrainedTokenizer):
             cls_token=cls_token,
             pad_token=pad_token,
             mask_token=mask_token,
+            unk_token=unk_token,
             padding_side=padding_side,
             model_max_length=model_max_length,
             **kwargs,
