@@ -423,6 +423,7 @@ class Trainer:
                     raw_texts = batch.get('raw_texts', None)
                     set_size = len(raw_texts)
                     num_sets = len(raw_texts[0])
+
                     # reshape raw_texts list from [set_size, num_samples] to [num_samples, set_size]
                     raw_texts = [[raw_texts[j][i] for j in range(set_size)] for i in range(num_sets)]
 

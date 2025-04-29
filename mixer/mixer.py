@@ -118,8 +118,13 @@ def mix_batch_sets(
     # Handle dictionary input
     if isinstance(data, dict):
         samples = data['samples']
-        batch_size, set_size = samples.shape[:2]
-        device = samples.device
+        if isinstance(samples, torch.Tensor):
+            batch_size, set_size = samples.shape[:2]
+            device = samples.device
+        else:
+            input_id_keys = [x for x in samples.keys() if 'input_ids' in x]
+            device = samples[input_id_keys[0]].device
+            batch_size, set_size = samples[input_id_keys[0]].shape[:2]
 
         mixed_set_size = mixed_set_size if mixed_set_size is not None else set_size
         n_mixed_sets = n_mixed_sets if n_mixed_sets is not None else batch_size
@@ -155,12 +160,32 @@ def mix_batch_sets(
                     mixed_data[key] = value[source_set_unique]
                 else:
                     mixed_data[key] = value
+            elif isinstance(value, dict):
+                nested_d = {}
+                for k2, v2 in data[key].items():
+                    if isinstance(v2, torch.Tensor) and len(v2.shape) >= 2:
+                        # Check if first two dimensions match batch_size and set_size
+                        if v2.shape[:2] == (batch_size, set_size):
+                            nested_d[k2] = v2[source_set_indices, source_point_indices]
+                        elif v2.shape[0] == batch_size:
+                            source_set_unique = rowwise_unique(source_set_indices, k)
+                            nested_d[k2] = v2[source_set_unique]
+                        else:
+                            nested_d[k2] = v2
+                mixed_data[key] = nested_d
+
+            elif key == 'raw_texts':
+                mixed_raw = [
+                                [data['raw_texts'][ssi.item()][spi.item()] for ssi, spi in zip(set_row, point_row)]
+                                for set_row, point_row in zip(source_set_indices.T, source_point_indices.T)
+                            ]
+                
+                mixed_data[key] = mixed_raw
             else:
                 mixed_data[key] = value
         
         # add weights to mixed_data by indexing into mix_probs
         mixed_data['weights'] = mix_probs
-                
         return mixed_data
         
     # Handle tensor input
@@ -345,30 +370,48 @@ class SetMixer:
             replacement=self.replacement
         )
     
+    # def collate_fn(self, batch: list):
+    #     """
+    #     Custom collate function that can be used with DataLoader.
+    #     Handles both tensor inputs and dictionary inputs from SetDataset classes.
+    #     """
+    #     # First stack the batch normally
+    #     if isinstance(batch[0], torch.Tensor):
+    #         stacked = torch.stack(batch)
+    #         return self(stacked)
+    #     elif isinstance(batch[0], dict):
+    #         # Stack each key separately
+    #         stacked = {}
+    #         for key in batch[0].keys():
+    #             if isinstance(batch[0][key], torch.Tensor):
+    #                 stacked[key] = torch.stack([b[key] for b in batch])
+    #             else:
+    #                 # Handle non-tensor metadata
+    #                 stacked[key] = [b[key] for b in batch]
+            
+    #         # Apply mixing to the stacked batch
+    #         return self(stacked)
+    #     else:
+    #         raise ValueError(f"Unsupported batch type: {type(batch[0])}")
+
     def collate_fn(self, batch: list):
         """
-        Custom collate function that can be used with DataLoader.
-        Handles both tensor inputs and dictionary inputs from SetDataset classes.
+        Custom collate function that recursively collates batches of nested dictionaries and tensors.
+        Supports standard tensors and nested structures like {'samples': {...}}.
         """
-        # First stack the batch normally
-        if isinstance(batch[0], torch.Tensor):
-            stacked = torch.stack(batch)
-            return self(stacked)
-        elif isinstance(batch[0], dict):
-            # Stack each key separately
-            stacked = {}
-            for key in batch[0].keys():
-                if isinstance(batch[0][key], torch.Tensor):
-                    stacked[key] = torch.stack([b[key] for b in batch])
-                else:
-                    # Handle non-tensor metadata
-                    stacked[key] = [b[key] for b in batch]
+
+        def recursive_collate(batch_part):
+            if isinstance(batch_part[0], torch.Tensor):
+                return torch.stack(batch_part)
+            elif isinstance(batch_part[0], dict):
+                return {key: recursive_collate([b[key] for b in batch_part]) for key in batch_part[0]}
+            else:
+                return batch_part  # for strings, lists, or other non-tensor data
             
-            # Apply mixing to the stacked batch
-            return self(stacked)
-        else:
-            raise ValueError(f"Unsupported batch type: {type(batch[0])}")
-        
+        collated = recursive_collate(batch)
+        return self(collated)
+
+
     def prescribed_mixing(self, batch_data, mix_probs):
 
         return mix_batch_sets(
