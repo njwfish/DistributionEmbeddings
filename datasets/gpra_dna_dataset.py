@@ -8,6 +8,7 @@ import glob
 import logging
 import random
 from functools import lru_cache
+from collections import defaultdict
 
 logger = logging.getLogger(__name__)
 
@@ -176,6 +177,7 @@ class GPRADNADataset(Dataset):
     def _create_sets_for_condition(self, condition_name, quantile_groups):
         """
         Create sets for a specific condition using sliding window over quantiles.
+        Fully vectorized implementation using NumPy for parallel processing.
         
         Args:
             condition_name: Name of the condition
@@ -204,34 +206,72 @@ class GPRADNADataset(Dataset):
             logger.warning(f"Not enough quantiles for window width {self.window_width} in condition {condition_name}")
             return
         
-        # Create the sets
-        for i in range(self.num_sets):
-            # Randomly select center quantile within valid range
-            center_idx = random.randint(min_idx, max_idx)
-            center_quantile = available_quantiles[center_idx]
+        # Step 1: Create a mapping to store all sequences by quantile index
+        # This helps with efficient sequence access
+        quantile_to_idx = {q: i for i, q in enumerate(available_quantiles)}
+        idx_to_quantile = {i: q for i, q in enumerate(available_quantiles)}
+        
+        # Step 2: Convert sequence lists to a numpy array of pointers for efficient indexing
+        all_seqs_by_quantile = []
+        seq_counts = []
+        # compute minimum seqs per quantile
+        min_seqs_per_quantile = min([len(seqs) for seqs in quantile_groups.values()])
+        for q in available_quantiles:
+            all_seqs_by_quantile.append(np.array(quantile_groups[q][:min_seqs_per_quantile], dtype=object))
+            seq_counts.append(len(quantile_groups[q]))
+
+        all_seqs_by_quantile = np.array(all_seqs_by_quantile)
+        
+        # Step 3: Randomly select center indices for all sets at once
+        center_indices = np.random.randint(min_idx, max_idx + 1, size=self.num_sets)
+        
+        # Step 4: Create window offsets in a vectorized way
+        window_offsets = np.arange(-(self.window_width // 2), (self.window_width // 2) + 1)
+
+        sets = [
+            {
+                "condition": condition_name,
+                "center_quantile": idx_to_quantile[center_indices[i]],
+                "window_width": self.window_width,
+                "sequences": self._select_sequences_for_set(
+                    center_indices[i], 
+                    window_offsets, 
+                    available_quantiles, 
+                    all_seqs_by_quantile
+                )
+            }
+            for i in range(self.num_sets)
+        ]
+        
+        # Step 5: Create all the data structure at once
+        self.data.extend(sets)
+        
+    def _select_sequences_for_set(self, center_idx, window_offsets, available_quantiles, all_seqs_by_quantile):
+        """
+        Select sequences for a single set using vectorized operations.
+        
+        Args:
+            center_idx: The center quantile index
+            window_offsets: Array of window offsets
+            available_quantiles: Sorted list of all available quantiles
+            all_seqs_by_quantile: List of sequence lists for each quantile
             
-            # Get sequences from window of quantiles
-            window_seqs = []
-            for window_offset in range(-(self.window_width // 2), (self.window_width // 2) + 1):
-                q_idx = center_idx + window_offset
-                if 0 <= q_idx < len(available_quantiles):
-                    q = available_quantiles[q_idx]
-                    window_seqs.extend(quantile_groups[q])
-            
-            # Randomly sample set_size sequences (or fewer if not enough available)
-            if len(window_seqs) >= self.set_size:
-                set_sequences = random.sample(window_seqs, self.set_size)
-            else:
-                set_sequences = window_seqs
-            
-            # Add to dataset if we have sequences
-            if set_sequences:
-                self.data.append({
-                    "condition": condition_name,
-                    "center_quantile": center_quantile,
-                    "window_width": self.window_width,
-                    "sequences": set_sequences
-                })
+        Returns:
+            List of selected sequences
+        """
+        # Calculate valid quantile indices for this center
+        q_indices = center_idx + window_offsets
+        valid_indices = (q_indices >= 0) & (q_indices < len(available_quantiles))
+        valid_q_indices = q_indices[valid_indices]
+        
+        # Collect all sequences in the window
+        window_seqs = all_seqs_by_quantile[valid_q_indices].flatten()
+
+        # Always sample with replacement for maximum speed
+        # This ensures all sets have exactly set_size sequences
+        indices = np.random.choice(window_seqs.shape[0], self.set_size, replace=True)
+        selected_seqs = window_seqs[indices]
+        return selected_seqs
     
     def _encode_dna_sequence(self, sequence):
         """
@@ -308,12 +348,6 @@ class GPRADNADataset(Dataset):
     def __getitem__(self, idx):
         item = self.data[idx]
         sequences = item["sequences"]
-        
-        # Ensure we have enough sequences
-        if len(sequences) < self.set_size:
-            # Pad with duplicates if needed
-            sequences = sequences + sequences * (self.set_size // len(sequences) + 1)
-            sequences = sequences[:self.set_size]
             
         # Batch process sequences for encoder
         encoder_inputs = torch.stack([self._encode_dna_sequence(seq) for seq in sequences])

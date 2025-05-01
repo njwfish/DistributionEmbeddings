@@ -190,7 +190,6 @@ class Trainer:
                         'generator_state_dict': generator.model.state_dict(),
                         'optimizer_state_dict': optimizer.state_dict(),
                         'scheduler_state_dict': scheduler.state_dict(),
-                        'loss': avg_epoch_loss,
                     }, checkpoint_path)
                     self.logger.info(f"Saved checkpoint to {checkpoint_path}")                
             
