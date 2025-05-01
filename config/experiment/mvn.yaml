@@ -10,6 +10,7 @@ defaults:
   - /encoder: gnn
   - /model: diffusion_mlp
   - /generator: ddpm
+  - /training: default500
 
 # Experiment-specific parameters
 latent_dim: 16

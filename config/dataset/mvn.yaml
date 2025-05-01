@@ -1,6 +1,6 @@
 # @package _global_.dataset
 _target_: datasets.distribution_datasets.MultivariateNormalDistributionDataset
-n_sets: 10000
+n_sets: 50000
 set_size: ${experiment.set_size}
 data_shape: [2]
 seed: ${seed} 
