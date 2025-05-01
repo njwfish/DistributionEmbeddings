@@ -140,7 +140,8 @@ def mix_batch_sets(
             (n_mixed_sets, mixed_set_size),
             device=device
         )
-        
+        source_set_unique = rowwise_unique(source_set_indices, k)
+
         # Create output dictionary
         mixed_data = {}
         
@@ -151,7 +152,6 @@ def mix_batch_sets(
                 if value.shape[:2] == (batch_size, set_size):
                     mixed_data[key] = value[source_set_indices, source_point_indices]
                 elif value.shape[0] == batch_size:
-                    source_set_unique = rowwise_unique(source_set_indices, k)
                     mixed_data[key] = value[source_set_unique]
                 else:
                     mixed_data[key] = value
@@ -159,7 +159,7 @@ def mix_batch_sets(
                 mixed_data[key] = value
         
         # add weights to mixed_data by indexing into mix_probs
-        mixed_data['weights'] = mix_probs
+        mixed_data['weights'] = torch.gather(mix_probs, 1, source_set_unique)
                 
         return mixed_data
         

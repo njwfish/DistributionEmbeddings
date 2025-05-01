@@ -17,6 +17,7 @@ class Trainer:
         log_interval=10,
         save_interval=20,
         eval_interval=5,
+        within_epoch_save_interval=10_000,
         early_stopping=True,
         patience=10,
         use_tqdm=True,
@@ -38,6 +39,7 @@ class Trainer:
         self.log_interval = log_interval
         self.save_interval = save_interval
         self.eval_interval = eval_interval
+        self.within_epoch_save_interval = within_epoch_save_interval
         self.early_stopping = early_stopping
         self.patience = patience
         self.use_tqdm = use_tqdm
@@ -179,6 +181,18 @@ class Trainer:
                             "batch/step": step,
                             "batch/epoch": epoch + 1,
                         }, step=step)
+
+                if batch_idx % self.within_epoch_save_interval == 0:
+                    checkpoint_path = os.path.join(output_dir, f"checkpoint_epoch_{epoch+1}.pt")
+                    torch.save({
+                        'epoch': epoch + 1,
+                        'encoder_state_dict': encoder.state_dict(),
+                        'generator_state_dict': generator.model.state_dict(),
+                        'optimizer_state_dict': optimizer.state_dict(),
+                        'scheduler_state_dict': scheduler.state_dict(),
+                        'loss': avg_epoch_loss,
+                    }, checkpoint_path)
+                    self.logger.info(f"Saved checkpoint to {checkpoint_path}")                
             
             # Calculate average loss for this epoch
             avg_epoch_loss = sum(epoch_losses) / len(epoch_losses)

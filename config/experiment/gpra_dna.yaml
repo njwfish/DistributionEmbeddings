@@ -9,12 +9,12 @@ defaults:
   - /dataset: gpra_dna
   - /encoder: dna_conv
   - /generator: hyenadna
-
+  - /training: long_epochs
 # Experiment-specific parameters
-latent_dim: 64
-hidden_dim: 128
-set_size: 20
-batch_size: 8
+latent_dim: 128
+hidden_dim: 256
+set_size: 100
+batch_size: 32
 lr: 1e-4
 weight_decay: 1e-5
 
