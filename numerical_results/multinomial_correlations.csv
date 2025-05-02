@@ -1,0 +1,4 @@
+,encoder,corr
+0,DistributionEncoderGNN,0.952168006217707
+1,KMEEncoder,0.6575753435187149
+2,WormholeEncoder,0.8413966904422611

@@ -1,0 +1,21 @@
+# @package _global_.experiment
+
+# Experiment name and description
+name: dna_multinomial
+description: "Multinomial DNA"
+
+# Override defaults from config.yaml
+defaults:
+  - /dataset: synthetic_dna
+  - /encoder: dna_conv
+  - /generator: hyenadna
+  - /mixer: dirichlet_k
+
+# Experiment-specific parameters
+latent_dim: 64
+hidden_dim: 128
+batch_size: 8
+set_size: 100
+n_mix: 3
+alpha: 1.0
+lr: 2e-4  # Higher learning rate for synthetic data
