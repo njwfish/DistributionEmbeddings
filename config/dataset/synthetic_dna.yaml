@@ -2,7 +2,7 @@
 _target_: datasets.synthetic_dna.SyntheticDNADataset
 
 # Basic parameters
-num_sets: 100           # Number of different pattern sets to generate
+num_sets: 3           # Number of different pattern sets to generate
 set_size: ${experiment.set_size}  # Number of sequences per set (from experiment config)
 pattern_length: 4      # Length of the repeating pattern
 seq_length: 10         # Length of each sequence

@@ -181,7 +181,10 @@ class MultinomialDistributionDataset(Dataset):
             
     def generate_params(self, n_sets, data_shape):
         dim = np.prod(data_shape)
-        probs = np.random.dirichlet(alpha=np.ones(dim)*self.spike, size=n_sets)
+        alphas = np.ones(dim)
+        alphas[0] = self.spike
+        # instead of np.ones(dim)*self.spike
+        probs = np.random.dirichlet(alpha=alphas, size=n_sets)
         return probs.reshape(n_sets, *data_shape)
 
     
