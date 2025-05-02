@@ -71,36 +71,32 @@ def fit_gmm_batch(samples: np.ndarray,
 def plot_gmm_trajectory(means: np.ndarray, 
                        covs: np.ndarray, 
                        weights: np.ndarray,
-                       figsize: Tuple[int, int] = (15, 6),
+                       figsize: Tuple[int, int] = (12, 8),
                        alpha: float = 0.3,
                        n_std: float = 2,
-                       title: str = None) -> Tuple[plt.Figure, plt.Axes]:
+                       title: str = None) -> plt.Figure:
     """
-    Plot the trajectory of Gaussian components over time with a separate simplex plot for weights.
+    Plot the trajectory of Gaussian components over time with a simplex inset for weights.
     
     Args:
         means: Array of shape (num_timesteps, n_components, dim)
         covs: Array of shape (num_timesteps, n_components, dim, dim)
         weights: Array of shape (num_timesteps, n_components)
-        figsize: Figure size (width, height) for the combined plot
+        figsize: Figure size (width, height) for the plot
         alpha: Transparency of ellipses
         n_std: Number of standard deviations for ellipse size
         title: Optional title for the trajectory plot
     
     Returns:
-        fig: Figure object containing both plots
-        (ax_traj, ax_weights): Tuple of Axes objects for trajectory and weights
+        fig: Figure object containing the plot
     """
     if means.shape[-1] != 2:
         raise ValueError("This visualization only works for 2D Gaussian mixtures")
         
     num_timesteps, n_components, _ = means.shape
     
-    # Create figure with two subplots
-    fig = plt.figure(figsize=figsize)
-    gs = plt.GridSpec(1, 2, width_ratios=[2, 1])
-    ax_traj = fig.add_subplot(gs[0])
-    ax_weights = fig.add_subplot(gs[1])
+    # Create figure with a single main plot
+    fig, ax_traj = plt.subplots(figsize=figsize)
     
     # Set up colors for components
     component_colors = plt.cm.Set2(np.linspace(0, 1, n_components))
@@ -144,20 +140,131 @@ def plot_gmm_trajectory(means: np.ndarray,
     ax_traj.grid(True, alpha=0.3)
     ax_traj.set_xlabel('x')
     ax_traj.set_ylabel('y')
+    ax_traj.set_xlim(-1, 5)
+    ax_traj.set_ylim(-1, 5)
     if title:
         ax_traj.set_title(title)
-    ax_traj.legend()
     
     # Add colorbar to show time progression
-    sm = plt.cm.ScalarMappable(cmap=plt.cm.viridis,
-                              norm=plt.Normalize(vmin=0, vmax=num_timesteps-1))
-    plt.colorbar(sm, ax=ax_traj, label='Time step')
+    # sm = plt.cm.ScalarMappable(cmap=plt.cm.viridis,
+    #                           norm=plt.Normalize(vmin=0, vmax=num_timesteps-1))
+    # plt.colorbar(sm, ax=ax_traj, label='Time step')
     
-    # Plot weights evolution in probability simplex
-    plot_weight_simplex(weights, ax_weights, component_colors)
+    # Create smaller inset axes for the weight simplex in the bottom left corner
+    # with white background and black outline
+    ax_inset = fig.add_axes([0.16, 0.1, 0.23, 0.17], facecolor='white')
+    ax_inset.spines['top'].set_color('black')
+    ax_inset.spines['right'].set_color('black')
+    ax_inset.spines['bottom'].set_color('black')
+    ax_inset.spines['left'].set_color('black')
+    ax_inset.spines['top'].set_linewidth(1)
+    ax_inset.spines['right'].set_linewidth(1)
+    ax_inset.spines['bottom'].set_linewidth(1)
+    ax_inset.spines['left'].set_linewidth(1)
+    
+    # Plot weights evolution in probability simplex in the inset (without labels)
+    plot_weight_simplex_inset(weights, ax_inset, component_colors)
     
     plt.tight_layout()
-    return fig, (ax_traj, ax_weights)
+    return fig
+
+def plot_weight_simplex_inset(weights: np.ndarray, 
+                             ax: plt.Axes, 
+                             colors: np.ndarray) -> None:
+    """
+    Plot the evolution of mixture weights in a probability simplex inset without labels.
+    
+    Args:
+        weights: Array of shape (num_timesteps, n_components)
+        ax: Matplotlib axes to plot on
+        colors: Array of colors for each component
+    """
+    num_timesteps, n_components = weights.shape
+    
+    if n_components == 2:
+        # For 2 components, plot as a 1D line
+        times = np.arange(num_timesteps)
+        ax.plot(times, weights[:, 0], '-o', color=colors[0],
+               markersize=3, markeredgecolor='white', markeredgewidth=0.5)
+        ax.plot(times, weights[:, 1], '-o', color=colors[1],
+               markersize=3, markeredgecolor='white', markeredgewidth=0.5)
+        ax.grid(True, alpha=0.3)
+        # No labels or title
+        
+    elif n_components == 3:
+        # For 3 components, plot in triangular simplex
+        # Convert to barycentric coordinates
+        triangle = np.array([[0, 0], [1, 0], [0.5, np.sqrt(0.75)]])
+        barycentric = weights @ triangle
+        
+        # Draw the simplex triangle
+        ax.plot([0, 1], [0, 0], 'k-', alpha=0.3, linewidth=1)
+        ax.plot([0, 0.5], [0, np.sqrt(0.75)], 'k-', alpha=0.3, linewidth=1)
+        ax.plot([1, 0.5], [0, np.sqrt(0.75)], 'k-', alpha=0.3, linewidth=1)
+        
+        # Add grid lines inside the simplex
+        n_lines = 4  # reduced number of grid lines
+        
+        for i in range(1, n_lines):
+            t = i / n_lines
+            
+            # Lines parallel to bottom edge
+            start = np.array([0, 0]) * (1-t) + np.array([0.5, np.sqrt(0.75)]) * t
+            end = np.array([1, 0]) * (1-t) + np.array([0.5, np.sqrt(0.75)]) * t
+            ax.plot([start[0], end[0]], [start[1], end[1]], 'gray', alpha=0.2, linewidth=0.5)
+            
+            # Lines parallel to left edge
+            start = np.array([0, 0]) * (1-t) + np.array([1, 0]) * t
+            end = np.array([0.5, np.sqrt(0.75)]) - (np.array([0.5, np.sqrt(0.75)]) - np.array([0, 0])) * (1-t)
+            ax.plot([start[0], end[0]], [start[1], end[1]], 'gray', alpha=0.2, linewidth=0.5)
+            
+            # Lines parallel to right edge
+            start = np.array([1, 0]) * (1-t) + np.array([0.5, np.sqrt(0.75)]) * t
+            end = np.array([0, 0]) + (np.array([1, 0]) - np.array([0, 0])) * (1-t)
+            ax.plot([start[0], end[0]], [start[1], end[1]], 'gray', alpha=0.2, linewidth=0.5)
+        
+        # Plot trajectory with gradient color
+        points = barycentric.reshape(-1, 1, 2)
+        segments = np.concatenate([points[:-1], points[1:]], axis=1)
+        time_colors = plt.cm.viridis(np.linspace(0, 1, num_timesteps-1))
+        
+        # Plot trajectory line
+        for i, (p1, p2) in enumerate(segments):
+            ax.plot([p1[0], p2[0]], [p1[1], p2[1]], '-',
+                   color=time_colors[i], linewidth=1.5, alpha=0.7)
+        
+        # Plot points with white edge for better visibility
+        for t in range(num_timesteps):
+            color = plt.cm.viridis(t / (num_timesteps-1))
+            ax.plot(barycentric[t, 0], barycentric[t, 1], 'o',
+                   color=color, markersize=4,
+                   markeredgecolor='white', markeredgewidth=0.5)
+        
+        # Add small dots at vertices with component colors (smaller than before)
+        vertex_size = 40
+        ax.scatter([0, 1, 0.5], [0, 0, np.sqrt(0.75)], 
+                  c=colors[:3], s=vertex_size, zorder=10,
+                  edgecolor='white', linewidth=1)
+        
+        ax.set_aspect('equal')
+        ax.axis('off')
+        
+        # No title or labels
+        
+        # Set limits with padding
+        pad = 0.05
+        ax.set_xlim(-pad, 1+pad)
+        ax.set_ylim(-pad, np.sqrt(0.75)+pad)
+        
+    else:
+        # For >3 components, show weight evolution over time
+        times = np.arange(num_timesteps)
+        for k in range(n_components):
+            ax.plot(times, weights[:, k], '-o', 
+                   color=colors[k],
+                   markersize=3, markeredgecolor='white', markeredgewidth=0.5)
+        ax.grid(True, alpha=0.3)
+        # No labels or title
 
 def plot_weight_simplex(weights: np.ndarray, 
                        ax: plt.Axes, 
@@ -268,8 +375,7 @@ def plot_weight_simplex(weights: np.ndarray,
         ax.set_ylabel('Weight')
         ax.grid(True, alpha=0.3)
         ax.legend(frameon=True, fancybox=True, shadow=True)
-        ax.set_title('Weight Evolution') 
-
+        ax.set_title('Weight Evolution')
 
 def optimize_gmm(m_s: torch.Tensor,
                 m_t: torch.Tensor,
