@@ -11,11 +11,6 @@ defaults:
   - /generator: hyenadna
   - /scheduler: cosine
   - /training: long_epochs
-training:
-  n_epochs: 100
-  n_epochs_warmup: 10
-  n_epochs_eval: 10
-  n_epochs_save: 10
 
 # Experiment-specific parameters
 latent_dim: 64

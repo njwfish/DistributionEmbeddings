@@ -9,7 +9,7 @@ from torch.utils.data import Dataset
 from typing import Optional, Dict, Set, List
 import glob
 from collections import defaultdict
-
+from tqdm import tqdm
 logger = logging.getLogger(__name__)
 
 class DNADataset(Dataset):
@@ -21,7 +21,9 @@ class DNADataset(Dataset):
         p_sample_level: float = 0.7,  # Probability of sampling within the same sample
         eval_ratio: float = 0.3,      # Portion of samples to hold out for evaluation
         seed: Optional[int] = 42,
-        split: str = "train"          # 'train' or 'eval'
+        split: str = "train",          # 'train' or 'eval'
+        max_seq_length: int = 128, 
+        max_sets_per_sample: int = 20_000
     ):
         """
         Initialize the DNA dataset.
@@ -43,6 +45,7 @@ class DNADataset(Dataset):
         self.p_sample_level = p_sample_level
         self.eval_ratio = eval_ratio
         self.split = split
+        self.max_sets_per_sample = max_sets_per_sample
         
         # Load data (this will handle the train/eval split)
         self._load_data()
@@ -93,7 +96,7 @@ class DNADataset(Dataset):
         self.tissue_types = set()
         
         # Step 6: Load the actual data
-        for tissue in tissue_dirs:
+        for tissue in tqdm(tissue_dirs, desc="Loading tissues"):
             tissue_dir = os.path.join(self.processed_data_dir, tissue)
             sample_files = glob.glob(os.path.join(tissue_dir, "*.pkl"))
             
@@ -113,6 +116,8 @@ class DNADataset(Dataset):
                     sets = sample_data.get("sets", [])
                     if not sets:
                         continue
+                    if len(sets) > self.max_sets_per_sample:
+                        sets = sets[:self.max_sets_per_sample]
                     
                     # Add each set to the dataset
                     for set_data in sets:
