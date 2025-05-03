@@ -15,14 +15,14 @@ logger = logging.getLogger(__name__)
 class ViralDataset(Dataset):
     def __init__(self,
                  data_dir: str = 'data/spikeprot0430',
-                 set_size: int = 16,
+                 set_size: int = 10,
                  esm_name: str = 'facebook/esm2_t6_8M_UR50D',
                  progen_name: str = 'hugohrban/progen2-medium',
-                 max_length: int = 512,
+                 max_length: int = 1200,
                  seed: Optional[int] = 212121,
                  tokenize: bool = False,
-                 lines_to_read: int = 10**6,
-                 max_sets_per_fam: int = 100):
+                 lines_to_read: int = 10**8,
+                 max_sets_per_fam: int = 1):
         
         if seed is not None:
             random.seed(seed)
@@ -47,17 +47,17 @@ class ViralDataset(Dataset):
             self._tokenize_data(lines_to_read=lines_to_read)
         self.data = torch.load(self.tokenized_data_file)
 
-    def _tokenize_data(self, lines_to_read=2*10**8):
+    def _tokenize_data(self, lines_to_read=10**8):
 
         fn = self.data_dir+'/spikeprot0430.fasta'
         seqs_by_monthloc = defaultdict(list)
-        max_per_monthloc = 100  # cap per group
+        max_per_monthloc = self.set_size  # cap per group
 
         logger.info('building dict')
 
         record_iterator = SeqIO.parse(fn, "fasta")
 
-        for _ in tqdm(range(2 * 10**8)):
+        for _ in tqdm(range(lines_to_read)):
             try:
                 record = next(record_iterator)
                 fields = record.description.split("|")
@@ -76,12 +76,11 @@ class ViralDataset(Dataset):
 
         tokenized_data = []
 
-        for timeloc, seqs in d.items():
-            if len(seqs) < self.set_size:
+        for timeloc, seqs in tqdm(seqs_by_monthloc.items()):
+            if len(seqs) != self.set_size:
                 continue
 
-            # how many sets can we make? 
-            n_sets = min(len(seqs) // self.set_size, self.max_sets_per_fam)
+            n_sets = 1#min(len(seqs) // self.set_size, self.max_sets_per_fam)
             np.random.shuffle(seqs)
 
             for i in range(n_sets):
