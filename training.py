@@ -160,7 +160,7 @@ class Trainer:
                             "batch/epoch": epoch + 1,
                         } | {f'batch/{k}': v for k, v in losses.items()}, step=step)
 
-                if batch_idx % self.within_epoch_save_interval == 0:
+                if (batch_idx % self.within_epoch_save_interval == 0) and (batch_idx > 0):
                     checkpoint_path = os.path.join(output_dir, f"checkpoint_epoch_{epoch+1}.pt")
                     torch.save({
                         'epoch': epoch + 1,

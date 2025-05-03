@@ -7,19 +7,22 @@ description: "Essential genes analysis using distribution embeddings"
 # Override defaults from config.yaml
 defaults:
   - /dataset: essential_genes
-  - /encoder: resnet
+  - /encoder: resnet_pert_pred
   - /model: diffusion_gnn
-  - /generator: ddpm
+  - /generator: ddpm_subsample_indices
   - /optimizer: adam
   - /scheduler: cosine
-  - /training: default
+  - /training: default5000
   - /mixer: none
   - /wandb: default
   - /loss: perturbseq
+
 # Experiment-specific parameters
 latent_dim: 32
 hidden_dim: 128
-noise_dim: 32
+layers: 4
+layers_shared: 2
 set_size: 100
-batch_size: 16
+batch_size: 96
 lr: 1e-4 
+pert_embedding_dim: 16

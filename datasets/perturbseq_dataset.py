@@ -53,6 +53,8 @@ class PerturbseqDataset(Dataset):
         self.adata = anndata.read_h5ad(adata_path)
         # convert to dense float32
         self.X = self.adata.X.toarray()
+
+        self.n_cells = self.X.shape[0]
         
         # Get unique cell types and perturbation types
         self.cell_types = self.adata.obs[cell_key].unique()
@@ -117,11 +119,12 @@ class PerturbseqDataset(Dataset):
         self.pert_embedding_shape = embeddings[0].shape
     
     def __len__(self):
-        return self.n_sets
+        return self.n_cells // self.set_size
     
     def __getitem__(self, idx):
+        idx = idx % self.n_sets
         (cell_type, perturbation) = self.set_order[idx]
-        indices = self.sets[cell_type][perturbation]
+        indices = self.sets[cell_type][perturbation] 
         
         # If we have fewer samples than set_size, sample with replacement
         if len(indices) < self.set_size:

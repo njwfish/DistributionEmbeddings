@@ -1,3 +1,4 @@
+# @package _global_.dataset
 _target_: datasets.perturbseq_dataset.PerturbseqDataset
 adata_path: /orcd/data/omarabu/001/Omnicell_datasets/essential_gene_knockouts_raw/essential_gene_knockouts_raw.h5ad
 pert_embedding_path: /orcd/data/omarabu/001/Omnicell_datasets/essential_gene_knockouts_raw/pert_embeddings/GenePT.pt

@@ -2,7 +2,7 @@
 _target_: datasets.gpra_dna_dataset.GPRADNADataset
 
 # Data location and processing parameters
-data_dir: "/orcd/data/omarabu/001/njwfish/DistributionEmbeddings/data/gpra_processed"
+data_dir: "/orcd/scratch/bcs/001/njwfish/data/gpra_by_quantile"
 set_size: ${experiment.set_size}  # Number of sequences per set (from experiment config)
 num_quantiles: 100  # Number of quantiles to divide expression values
 window_width: 3  # Width of sliding window for selecting sequences

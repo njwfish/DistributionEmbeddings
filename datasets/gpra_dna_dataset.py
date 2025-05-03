@@ -1,130 +1,166 @@
 import os
 import torch
 import numpy as np
-import pandas as pd
-from torch.utils.data import Dataset
-from typing import Optional, List, Dict, Any, Union
+import pickle
 import glob
 import logging
 import random
-from functools import lru_cache
-from collections import defaultdict
-import pickle
-from tqdm import tqdm
-import time
+from torch.utils.data import Dataset
+from typing import Optional, Dict
 
 from datasets.hyena_tokenizer import CharacterTokenizer
 
 logger = logging.getLogger(__name__)
 
 class GPRADNADataset(Dataset):
-    """
-    Dataset for GPRA DNA sequences with expression values.
-    
-    This simplified version loads pre-processed data directly from a cache directory.
-    """
+    """Simplified dataset for GPRA DNA sequences organized by condition and quantile."""
     
     def __init__(
         self,
-        cache_dir: str = "/orcd/data/omarabu/001/njwfish/DistributionEmbeddings/data/gpra_conditions",
-        max_seq_length: int = 129,              # Maximum sequence length
+        data_dir: str = "/orcd/scratch/bcs/001/njwfish/data/gpra_by_quantile",
+        max_seq_length: int = 129,
         seed: Optional[int] = 42,
+        top_k_to_exclude: int = 5,
         **kwargs
     ):
         """
-        Initialize the simplified GPRA DNA dataset that loads from cache.
+        Initialize the dataset with condition and quantile organized GPRA DNA data.
         
         Args:
-            cache_dir: Directory containing cached condition files
+            data_dir: Directory containing quantile-organized data files
             max_seq_length: Maximum sequence length
             seed: Random seed for reproducibility
+            top_k_to_exclude: Number of top quantiles to exclude from training
         """
         if seed is not None:
             np.random.seed(seed)
             torch.manual_seed(seed)
+            random.seed(seed)
         
-        self.cache_dir = cache_dir
+        self.data_dir = data_dir
         self.max_seq_length = max_seq_length
+        self.top_k_to_exclude = top_k_to_exclude
         
-        # Create the DNA vocabulary for one-hot encoding
+        # Create the DNA vocabulary
         self.dna_vocab = {"A": 0, "C": 1, "G": 2, "T": 3, "N": 4}
-        self.vocab_size = len(self.dna_vocab)
         
         # Initialize HyenaDNA tokenizer
-        self._init_hyena_tokenizer()
-        
-        # Load cached data
-        self._load_cached_data()
-    
-    def _init_hyena_tokenizer(self):
-        """Initialize the HyenaDNA tokenizer."""
-        # HyenaDNA uses a character-level tokenizer
         self.hyena_tokenizer = CharacterTokenizer(characters=self.dna_vocab, model_max_length=self.max_seq_length)
+        
+        # Load metadata and identify available quantiles
+        self.metadata = self._load_metadata()
+        
+        # Load and organize data
+        self.data_by_condition = self._load_data()
+        
+        # Determine which quantiles are available for training
+        self._setup_quantiles()
     
-    def _load_cached_data(self):
-        """Load all cached condition data."""
-        start_time = time.time()
-        logger.info(f"Loading dataset from cache directory: {self.cache_dir}")
+    def _load_metadata(self):
+        """Load metadata about available quantiles and conditions."""
+        metadata_path = os.path.join(self.data_dir, "metadata.pkl")
+        if not os.path.exists(metadata_path):
+            raise FileNotFoundError(f"Metadata file not found: {metadata_path}")
         
-        # Find all pickle files in the cache directory
-        cached_files = glob.glob(os.path.join(self.cache_dir, "*.pkl"))
+        with open(metadata_path, 'rb') as f:
+            metadata = pickle.load(f)
         
-        if not cached_files:
-            raise FileNotFoundError(f"No cached files found in {self.cache_dir}")
+        logger.info(f"Loaded metadata with {metadata.get('num_conditions', 0)} conditions and {metadata.get('num_quantiles', 0)} quantiles")
+        return metadata
+    
+    def _setup_quantiles(self):
+        """Setup quantile information and build index of valid samples."""
+        # Get all quantiles from metadata
+        all_quantiles = sorted(self.metadata.get("quantiles", []))
+        if not all_quantiles:
+            raise ValueError("No quantile information found in metadata")
         
-        logger.info(f"Found {len(cached_files)} cached condition files")
+        # Determine which quantiles to exclude
+        k = min(self.top_k_to_exclude, len(all_quantiles))
+        self.excluded_quantiles = set(all_quantiles[-k:]) if k > 0 else set()
         
-        # Load all data
-        self.data = []
-        self.condition_data = {}
+        # Log excluded quantiles
+        if self.excluded_quantiles:
+            logger.info(f"Excluding top {k} quantiles: {self.excluded_quantiles}")
         
-        for file_path in cached_files:
-            condition_name = os.path.basename(file_path).split('.')[0]
-            logger.info(f"Loading condition: {condition_name}")
+        # Build flat index of valid samples
+        self.valid_samples = []
+        
+        for condition, condition_data in self.data_by_condition.items():
+            for quantile, items in condition_data.items():
+                if quantile not in self.excluded_quantiles:
+                    for i, item in enumerate(items):
+                        self.valid_samples.append((condition, quantile, i))
+        
+        logger.info(f"Dataset contains {len(self.valid_samples)} valid samples for training")
+    
+    def _load_data(self):
+        """Load data organized by condition and quantile."""
+        data_by_condition = {}
+        
+        # Get all conditions from metadata or directory structure
+        conditions = self.metadata.get("conditions", [])
+        if not conditions:
+            conditions = [d for d in os.listdir(self.data_dir) 
+                         if os.path.isdir(os.path.join(self.data_dir, d)) and d != "quantiles"]
+        
+        if not conditions:
+            raise ValueError(f"No conditions found in {self.data_dir}")
+        
+        # Load data for each condition
+        for condition in conditions:
+            condition_dir = os.path.join(self.data_dir, condition)
+            if not os.path.isdir(condition_dir):
+                continue
             
-            try:
-                with open(file_path, 'rb') as f:
-                    cached_data = pickle.load(f)
-                
-                self.condition_data[condition_name] = cached_data.get('condition_data', {})
-                self.data.extend(cached_data.get('sets', []))
-                logger.info(f"Loaded {len(cached_data.get('sets', []))} sets for condition {condition_name}")
-            except Exception as e:
-                logger.warning(f"Failed to load condition {condition_name}: {e}")
-        
-        logger.info(f"Loaded a total of {len(self.data)} sequence sets in {time.time() - start_time:.2f} seconds")
-        
-        if not self.data:
-            # Check for chunked data (for large datasets)
-            chunks_dir = os.path.join(self.cache_dir, "chunks")
-            if os.path.exists(chunks_dir):
-                logger.info(f"Checking for chunked data in {chunks_dir}")
-                chunk_files = glob.glob(os.path.join(chunks_dir, "*.pkl"))
-                
-                if chunk_files:
-                    logger.info(f"Found {len(chunk_files)} chunk files")
-                    for chunk_file in chunk_files:
-                        try:
-                            with open(chunk_file, 'rb') as f:
-                                chunk_data = pickle.load(f)
-                            self.data.extend(chunk_data)
-                            logger.info(f"Loaded {len(chunk_data)} sets from chunk {os.path.basename(chunk_file)}")
-                        except Exception as e:
-                            logger.warning(f"Failed to load chunk {os.path.basename(chunk_file)}: {e}")
+            data_by_condition[condition] = {}
+            quantile_files = glob.glob(os.path.join(condition_dir, "quantile_*.pkl"))
             
-            if not self.data:
-                raise ValueError(f"No valid data found in cache directory: {self.cache_dir}")
+            for file_path in quantile_files:
+                try:
+                    quantile = int(os.path.basename(file_path).split('_')[1].split('.')[0])
+                    with open(file_path, 'rb') as f:
+                        items = pickle.load(f)
+                    
+                    data_by_condition[condition][quantile] = items
+                    logger.info(f"Loaded {len(items)} items for condition {condition}, quantile {quantile}")
+                except Exception as e:
+                    logger.warning(f"Failed to load {file_path}: {e}")
+        
+        return data_by_condition
+    
+    def _get_next_set(self, condition, quantile):
+        """Get a sample from the next higher quantile for the same condition."""
+        condition_data = self.data_by_condition.get(condition, {})
+        all_quantiles = sorted(condition_data.keys())
+        
+        try:
+            current_idx = all_quantiles.index(quantile)
+            if current_idx + 1 < len(all_quantiles):
+                next_quantile = all_quantiles[current_idx + 1]
+                items = condition_data[next_quantile]
+                if items:
+                    return random.choice(items), next_quantile
+        except (ValueError, IndexError):
+            pass
+        
+        return None, None
     
     def __len__(self):
-        return len(self.data)
+        return len(self.valid_samples)
     
     def __getitem__(self, idx):
-        item = self.data[idx]
+        # Get item from valid samples
+        condition, quantile, item_idx = self.valid_samples[idx]
+        item = self.data_by_condition[condition][quantile][item_idx]
         
-        # Return pre-tokenized data if available
-        return {
-            'condition': item.get("condition", "unknown"),
-            'center_quantile': item.get("center_quantile", 0),
+        # Always try to get next set from higher quantile
+        next_item, next_quantile = self._get_next_set(condition, quantile)
+        
+        # Prepare result
+        result = {
+            'condition': condition,
+            'center_quantile': quantile,
             'samples': {
                 'encoder_inputs': item["tokenized"]["encoder_inputs"],
                 'hyena_input_ids': torch.flip(item["tokenized"]["hyena_input_ids"], [1]),
@@ -132,77 +168,14 @@ class GPRADNADataset(Dataset):
             },
             'raw_texts': item.get("sequences", []).tolist()
         }
-    
-    def split_train_eval(self, k=5, eval_ratio=0.2, seed=None):
-        """
-        Split the dataset into training and evaluation sets.
         
-        For evaluation, filter out sets containing data from the top k quantiles.
+        # Always include next set if available
+        if next_item is not None:
+            result['next_set_samples'] = {
+                'encoder_inputs': next_item["tokenized"]["encoder_inputs"],
+                'hyena_input_ids': torch.flip(next_item["tokenized"]["hyena_input_ids"], [1]),
+                'hyena_attention_mask': torch.flip(next_item["tokenized"]["hyena_attention_mask"], [1])
+            }
+            result['next_quantile'] = next_quantile
         
-        Args:
-            k: Number of top quantiles to reserve for evaluation
-            eval_ratio: Ratio of evaluation data (out of eligible sets)
-            seed: Random seed for reproducibility
-            
-        Returns:
-            train_indices, eval_indices: Lists of indices for training and evaluation
-        """
-        if seed is not None:
-            np.random.seed(seed)
-            
-        # Get all available quantiles from the data
-        all_quantiles = set()
-        for item in self.data:
-            all_quantiles.add(item.get("center_quantile", 0))
-        
-        # Sort quantiles and identify the top k
-        sorted_quantiles = sorted(list(all_quantiles))
-        if len(sorted_quantiles) <= k:
-            logger.warning(f"Not enough quantiles ({len(sorted_quantiles)}) to reserve top {k}. Using half.")
-            k = max(1, len(sorted_quantiles) // 2)
-            
-        top_k_quantiles = sorted_quantiles[-k:]
-        logger.info(f"Using top {k} quantiles for evaluation: {top_k_quantiles}")
-        
-        # Find sets eligible for evaluation (having center in top k)
-        eval_eligible_indices = []
-        train_indices = []
-        
-        for i, item in enumerate(self.data):
-            if item.get("center_quantile", 0) in top_k_quantiles:
-                eval_eligible_indices.append(i)
-            else:
-                train_indices.append(i)
-        
-        # Determine the number of evaluation sets
-        num_eval = min(int(len(eval_eligible_indices) * eval_ratio), len(eval_eligible_indices))
-        
-        # Randomly select evaluation sets from eligible indices
-        if num_eval > 0:
-            eval_indices = np.random.choice(eval_eligible_indices, num_eval, replace=False).tolist()
-        else:
-            eval_indices = []
-            
-        logger.info(f"Split dataset: {len(train_indices)} training sets, {len(eval_indices)} evaluation sets")
-        
-        return train_indices, eval_indices
-    
-    def get_train_eval_subsets(self, k=5, eval_ratio=0.2, seed=None):
-        """
-        Create training and evaluation subset datasets.
-        
-        Args:
-            k: Number of top quantiles to reserve for evaluation
-            eval_ratio: Ratio of evaluation data (out of eligible sets)
-            seed: Random seed for reproducibility
-            
-        Returns:
-            train_dataset, eval_dataset: Subset datasets for training and evaluation
-        """
-        from torch.utils.data import Subset
-        
-        train_indices, eval_indices = self.split_train_eval(k, eval_ratio, seed)
-        train_dataset = Subset(self, train_indices)
-        eval_dataset = Subset(self, eval_indices)
-        
-        return train_dataset, eval_dataset 
+        return result 

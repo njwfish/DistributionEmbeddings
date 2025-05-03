@@ -2,7 +2,7 @@ import torch
 
 def mean_loss_fn(encoder, samples, latent):
     samples_mean = torch.mean(samples, dim=1)
-    mean_pred = encoder.mean_predict(latent)
+    mean_pred = encoder.mean_predictor(latent)
     diff = samples_mean - mean_pred
     loss =  torch.mean(torch.square(diff))
     return loss
@@ -12,14 +12,14 @@ def pert_pred_loss_fn(encoder, ctrl_samples, pert_samples, pert_embedding):
     delta_latent_pred = encoder.pert_predictor(ctrl_latent, pert_embedding)
 
     delta_true = pert_samples.mean(dim=1) - ctrl_samples.mean(dim=1)
-    delta_pred = encoder.mean_predict(delta_latent_pred)
+    delta_pred = encoder.mean_predictor(delta_latent_pred)
 
     diff = delta_true - delta_pred
     loss = torch.mean(torch.square(diff))
     return loss
 
 
-class LossManager:
+class PerturbSeqLossManager:
     def __init__(self, mean_loss_weight=1.0, pert_pred_loss_weight=1.0, mask_context_prob=0.0):
         self.mean_loss_weight = mean_loss_weight
         self.pert_pred_loss_weight = pert_pred_loss_weight
@@ -49,6 +49,7 @@ class LossManager:
                 ctrl_samples = batch['ctrl_samples'].to(device)
                 pert_samples = samples[pert_set_idx]
                 ctrl_samples_for_pert = ctrl_samples[pert_set_idx]
+                pert_embedding = pert_embedding[pert_set_idx]
 
                 pert_pred_loss = pert_pred_loss_fn(
                     encoder, ctrl_samples_for_pert, pert_samples, pert_embedding
