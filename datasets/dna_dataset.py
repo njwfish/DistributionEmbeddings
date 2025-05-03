@@ -149,40 +149,39 @@ class DNADataset(Dataset):
         Returns:
             The sampled item
         """
-        if idx is None:
-            # Hierarchical sampling
-            # First, randomly select a tissue
-            tissue = random.choice(self.tissue_types)
-            
-            # Then, decide whether to sample at sample level or tissue level
-            if random.random() < self.p_sample_level:
-                # Sample level: get sets from the same sample
-                # Get all samples for this tissue
-                tissue_indices = self.tissue_to_indices[tissue]
-                if not tissue_indices:
-                    # Fallback to random sampling if no indices for this tissue
-                    idx = random.randint(0, len(self.data) - 1)
-                else:
-                    # Get a random set from this tissue
-                    random_tissue_idx = random.choice(tissue_indices)
-                    sample_id = self.data[random_tissue_idx]["sample_id"]
-                    
-                    # Get all sets from this sample
-                    sample_indices = self.sample_to_indices[sample_id]
-                    if not sample_indices:
-                        # Fallback to tissue-level sampling
-                        idx = random.choice(tissue_indices)
-                    else:
-                        # Sample from this sample
-                        idx = random.choice(sample_indices)
+        # Hierarchical sampling
+        # First, randomly select a tissue
+        tissue = random.choice(self.tissue_types)
+        
+        # Then, decide whether to sample at sample level or tissue level
+        if random.random() < self.p_sample_level:
+            # Sample level: get sets from the same sample
+            # Get all samples for this tissue
+            tissue_indices = self.tissue_to_indices[tissue]
+            if not tissue_indices:
+                # Fallback to random sampling if no indices for this tissue
+                idx = random.randint(0, len(self.data) - 1)
             else:
-                # Tissue level: randomly select any set from this tissue
-                tissue_indices = self.tissue_to_indices[tissue]
-                if not tissue_indices:
-                    # Fallback to random sampling
-                    idx = random.randint(0, len(self.data) - 1)
-                else:
+                # Get a random set from this tissue
+                random_tissue_idx = random.choice(tissue_indices)
+                sample_id = self.data[random_tissue_idx]["sample_id"]
+                
+                # Get all sets from this sample
+                sample_indices = self.sample_to_indices[sample_id]
+                if not sample_indices:
+                    # Fallback to tissue-level sampling
                     idx = random.choice(tissue_indices)
+                else:
+                    # Sample from this sample
+                    idx = random.choice(sample_indices)
+        else:
+            # Tissue level: randomly select any set from this tissue
+            tissue_indices = self.tissue_to_indices[tissue]
+            if not tissue_indices:
+                # Fallback to random sampling
+                idx = random.randint(0, len(self.data) - 1)
+            else:
+                idx = random.choice(tissue_indices)
         
         # Return the data at the selected index
         item = self.data[idx]
@@ -192,8 +191,8 @@ class DNADataset(Dataset):
             'sample_id': item["sample_id"],
             'samples': {
                 'encoder_inputs': item["tokenized"]["encoder_inputs"],
-                'hyena_input_ids': item["tokenized"]["hyena_input_ids"],
-                'hyena_attention_mask': item["tokenized"]["hyena_attention_mask"]
+                'hyena_input_ids': torch.flip(item["tokenized"]["hyena_input_ids"], [1]),
+                'hyena_attention_mask': torch.flip(item["tokenized"]["hyena_attention_mask"], [1])
             },
             'raw_texts': item["sequences"]
         } 
