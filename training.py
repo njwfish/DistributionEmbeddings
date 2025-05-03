@@ -55,6 +55,7 @@ class Trainer:
         generator,
         dataloader,
         optimizer,
+        loss_manager,
         scheduler=None,
         device=None,
         output_dir='./outputs',
@@ -133,30 +134,7 @@ class Trainer:
             # Train for one epoch
             for batch_idx, batch in enumerate(pbar):
                 # Handle samples which can be either a tensor or a dictionary
-                if isinstance(batch['samples'], torch.Tensor):
-                    samples = batch['samples'].to(device)
-                    latent = encoder(samples)  # latent is num samples x num sets x latent dim
-                    
-                    if self.mask_context_prob > 0:
-                        context_mask = torch.bernoulli(torch.zeros(latent.shape[0])+self.mask_context_prob).to(latent.device)
-                        latent = latent * context_mask[:, None]
-                    loss = generator.loss(samples.view(-1, *samples.shape[2:]), latent)
-                else:
-                    # For dictionary samples (like PubMed dataset), move tensors to device
-                    samples = {}
-                    for key, value in batch['samples'].items():
-                        if isinstance(value, torch.Tensor):
-                            samples[key] = value.to(device)
-                        else:
-                            samples[key] = value
-
-                    # Encode samples to latent space
-                    latent = encoder(samples)
-                    if self.mask_context_prob > 0:
-                        context_mask = torch.bernoulli(torch.zeros(latent.shape[0])+self.mask_context_prob).to(latent.device)
-                        latent = latent * context_mask
-
-                    loss = generator.loss(samples, latent)
+                loss, losses = loss_manager.loss(encoder, generator, batch, device)
                 
                 optimizer.zero_grad()
                 
@@ -180,7 +158,7 @@ class Trainer:
                             "batch/loss": loss.item(),
                             "batch/step": step,
                             "batch/epoch": epoch + 1,
-                        }, step=step)
+                        } | {f'batch/{k}': v for k, v in losses.items()}, step=step)
 
                 if batch_idx % self.within_epoch_save_interval == 0:
                     checkpoint_path = os.path.join(output_dir, f"checkpoint_epoch_{epoch+1}.pt")

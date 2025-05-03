@@ -74,7 +74,9 @@ def main(cfg: DictConfig):
         # Create optimizer and scheduler
         optimizer = hydra.utils.instantiate(cfg.optimizer)(params=model_parameters)
         scheduler = hydra.utils.instantiate(cfg.scheduler)(optimizer=optimizer)
-        
+
+        loss_manager = hydra.utils.instantiate(cfg.loss)
+
         # Create trainer
         trainer = hydra.utils.instantiate(cfg.training)
         
@@ -85,6 +87,7 @@ def main(cfg: DictConfig):
             dataloader=dataloader,
             optimizer=optimizer,
             scheduler=scheduler,
+            loss_manager=loss_manager,
             output_dir=base_output_dir,
             config=cfg,
         )

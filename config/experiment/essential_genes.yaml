@@ -15,7 +15,7 @@ defaults:
   - /training: default
   - /mixer: none
   - /wandb: default
-
+  - /loss: perturbseq
 # Experiment-specific parameters
 latent_dim: 32
 hidden_dim: 128

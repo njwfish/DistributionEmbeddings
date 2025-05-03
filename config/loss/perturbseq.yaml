@@ -1,0 +1,5 @@
+# @package _global_.loss
+_target_: loss.perturbseq.LossManager
+mean_loss_weight: 1.0
+pert_pred_loss_weight: 0.05
+mask_context_prob: 0.0

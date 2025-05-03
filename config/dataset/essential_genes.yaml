@@ -1,6 +1,40 @@
-# @package _global_.dataset
-_target_: datasets.essential_genes_dataset.EssentialGenesDataset
-h5ad_file: "/orcd/data/omarabu/001/njwfish/DistributionEmbeddings/data/essential_genes/essential_gene_knockouts_raw.h5ad"
+_target_: datasets.perturbseq_dataset.PerturbseqDataset
+adata_path: /orcd/data/omarabu/001/Omnicell_datasets/essential_gene_knockouts_raw/essential_gene_knockouts_raw.h5ad
+pert_embedding_path: /orcd/data/omarabu/001/Omnicell_datasets/essential_gene_knockouts_raw/pert_embeddings/GenePT.pt
+control_pert: non-targeting
+pert_key: gene
+cell_key: cell_type
+split_mode: ood
+pca_components: ${experiment.pert_embedding_dim}
+# Seed for reproducibility
+seed: 42
+# Data shape and set size parameters
 set_size: 100
 data_shape: [11907]
-seed: ${seed} 
+# Held out perturbations and cell types for evaluation
+# eval_sets will be generated from these (used for backward compatibility)
+heldout_perts:
+  - SUPT5H
+  - ATF5
+  - SRSF1
+  - PSMA3
+  - SNRPD3
+  - RPL30
+  - EXOSC2
+  - CDC73
+  - NUP54
+  - PRIM2
+  - TSR2
+  - RPS11
+  - KPNB1
+  - NACA
+  - CSE1L
+  - SF3B2
+  - PHAX
+  - POLR2G
+  - RPS15A
+  - SF3A2
+heldout_cell_types: 
+  - jurkat
+  - hepg2
+  - rpe1

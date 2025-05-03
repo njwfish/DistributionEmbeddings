@@ -1,0 +1,3 @@
+# @package _global_.loss
+_target_: loss.default.LossManager
+mask_context_prob: 0.0

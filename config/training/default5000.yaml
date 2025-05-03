@@ -7,4 +7,3 @@ eval_interval: 100
 early_stopping: true
 patience: 20
 use_tqdm: false
-mask_context_prob: 0.0
