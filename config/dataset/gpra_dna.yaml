@@ -15,7 +15,7 @@ encoder_tokenizer: "dna"  # Tokenizer type for the encoder ("dna" for one-hot en
 hyena_tokenizer: "char"  # Tokenizer type for HyenaDNA
 
 # Auto-calculation of sets
-num_sets: 100000  # If null/None, sets are calculated to cover all sequences
+num_sets: null  # If null/None, sets are calculated to cover all sequences
 
 # Reproducibility
 seed: ${seed}  # Inherit from global seed 

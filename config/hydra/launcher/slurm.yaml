@@ -4,8 +4,8 @@ _target_: hydra_plugins.hydra_submitit_launcher.submitit_launcher.SlurmLauncher
 # Slurm configuration
 partition: ou_bcs_low
 gpus_per_node: 1
-cpus_per_task: 5
-mem_gb: 256
+cpus_per_task: 8
+mem_gb: 1000
 timeout_min: 720
 
 # Submitit settings

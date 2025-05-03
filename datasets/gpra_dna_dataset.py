@@ -9,6 +9,11 @@ import logging
 import random
 from functools import lru_cache
 from collections import defaultdict
+import pickle
+from tqdm import tqdm
+import time
+
+from datasets.hyena_tokenizer import CharacterTokenizer
 
 logger = logging.getLogger(__name__)
 
@@ -16,56 +21,30 @@ class GPRADNADataset(Dataset):
     """
     Dataset for GPRA DNA sequences with expression values.
     
-    This dataset loads DNA sequences and their corresponding expression values from preprocessed Parquet files.
-    Sequences are grouped based on expression quantiles within each file (condition).
-    Sets are created using a sliding window approach over adjacent quantiles.
+    This simplified version loads pre-processed data directly from a cache directory.
     """
     
     def __init__(
         self,
-        data_dir: str = "data/gpra_processed",  # Directory containing preprocessed Parquet files
-        set_size: int = 20,                     # Number of sequences per set
-        num_quantiles: int = 100,               # Number of quantiles to divide expression values
-        window_width: int = 3,                  # Width of sliding window for selecting sequences
+        cache_dir: str = "/orcd/data/omarabu/001/njwfish/DistributionEmbeddings/data/gpra_conditions",
         max_seq_length: int = 129,              # Maximum sequence length
-        encoder_tokenizer: str = "dna",         # Tokenizer type for the encoder
-        hyena_tokenizer: str = "char",          # Tokenizer type for HyenaDNA
-        num_sets: Optional[int] = None,         # If None, create sets to cover all sequences
         seed: Optional[int] = 42,
-        cache_quantiles: bool = True,           # Whether to cache quantile groups in memory
-        cache_size: int = 1000,                 # Size of LRU cache for tokenized sequences
+        **kwargs
     ):
         """
-        Initialize the GPRA DNA dataset.
+        Initialize the simplified GPRA DNA dataset that loads from cache.
         
         Args:
-            data_dir: Directory containing preprocessed Parquet files
-            set_size: Number of sequences per set
-            num_quantiles: Number of quantiles to divide expression values
-            window_width: Width of sliding window for selecting sequences
-            max_seq_length: Maximum sequence length for both encoder and HyenaDNA
-            encoder_tokenizer: Tokenizer type for the encoder
-            hyena_tokenizer: Tokenizer type for HyenaDNA
-            num_sets: Number of sets to create per condition (if None, calculated automatically)
+            cache_dir: Directory containing cached condition files
+            max_seq_length: Maximum sequence length
             seed: Random seed for reproducibility
-            cache_quantiles: Whether to cache quantile groups in memory
-            cache_size: Size of LRU cache for tokenized sequences
         """
         if seed is not None:
             np.random.seed(seed)
-            random.seed(seed)
             torch.manual_seed(seed)
         
-        self.data_dir = data_dir
-        self.set_size = set_size
-        self.num_quantiles = num_quantiles
-        self.window_width = window_width
+        self.cache_dir = cache_dir
         self.max_seq_length = max_seq_length
-        self.encoder_tokenizer = encoder_tokenizer
-        self.hyena_tokenizer = hyena_tokenizer
-        self.num_sets = num_sets
-        self.cache_quantiles = cache_quantiles
-        self.cache_size = cache_size
         
         # Create the DNA vocabulary for one-hot encoding
         self.dna_vocab = {"A": 0, "C": 1, "G": 2, "T": 3, "N": 4}
@@ -74,303 +53,156 @@ class GPRADNADataset(Dataset):
         # Initialize HyenaDNA tokenizer
         self._init_hyena_tokenizer()
         
-        # Initialize caches
-        self._encode_dna_sequence = lru_cache(maxsize=cache_size)(self._encode_dna_sequence)
-        self._tokenize_for_hyena = lru_cache(maxsize=cache_size)(self._tokenize_for_hyena)
-        
-        # Process the data
-        self._process_data()
+        # Load cached data
+        self._load_cached_data()
     
     def _init_hyena_tokenizer(self):
         """Initialize the HyenaDNA tokenizer."""
-        from datasets.hyena_tokenizer import CharacterTokenizer
-        
         # HyenaDNA uses a character-level tokenizer
         self.hyena_tokenizer = CharacterTokenizer(characters=self.dna_vocab, model_max_length=self.max_seq_length)
     
-    def _compute_quantiles(self, df):
-        """
-        Compute quantile groups for a dataframe.
+    def _load_cached_data(self):
+        """Load all cached condition data."""
+        start_time = time.time()
+        logger.info(f"Loading dataset from cache directory: {self.cache_dir}")
         
-        Args:
-            df: Pandas dataframe with 'sequence' and 'expression' columns
-            
-        Returns:
-            Dict mapping quantile index to list of sequences
-        """
-        # Compute quantile for each sequence
-        df['rank'] = df['expression'].rank(method='first')
-        bin_size = len(df) / self.num_quantiles
-        df['quantile'] = (df['rank'] / bin_size).astype(int)
-        df.loc[df['quantile'] >= self.num_quantiles, 'quantile'] = self.num_quantiles - 1
+        # Find all pickle files in the cache directory
+        cached_files = glob.glob(os.path.join(self.cache_dir, "*.pkl"))
         
-        # Group sequences by quantile
-        quantile_groups = {}
-        for q in range(self.num_quantiles):
-            q_sequences = df[df['quantile'] == q]['sequence'].tolist()
-            if q_sequences:  # Only add non-empty groups
-                quantile_groups[q] = q_sequences
+        if not cached_files:
+            raise FileNotFoundError(f"No cached files found in {self.cache_dir}")
         
-        return quantile_groups
-    
-    def _process_data(self):
-        """Process all preprocessed GPRA DNA data files."""
-        logger.info("Loading GPRA DNA dataset from Parquet files...")
+        logger.info(f"Found {len(cached_files)} cached condition files")
         
-        # Find all Parquet files
-        parquet_files = glob.glob(os.path.join(self.data_dir, "*.parquet"))
-        
-        if not parquet_files:
-            raise FileNotFoundError(f"No Parquet files found in {self.data_dir}")
-        
-        logger.info(f"Found {len(parquet_files)} Parquet files")
-        
-        # Process each file
-        self.condition_data = {}
+        # Load all data
         self.data = []
+        self.condition_data = {}
         
-        for file_path in parquet_files:
-            if "YPD" in file_path:
-                continue
+        for file_path in cached_files:
             condition_name = os.path.basename(file_path).split('.')[0]
-            logger.info(f"Processing condition: {condition_name}")
+            logger.info(f"Loading condition: {condition_name}")
             
-            # Load the data
-            df = pd.read_parquet(file_path)
+            try:
+                with open(file_path, 'rb') as f:
+                    cached_data = pickle.load(f)
+                
+                self.condition_data[condition_name] = cached_data.get('condition_data', {})
+                self.data.extend(cached_data.get('sets', []))
+                logger.info(f"Loaded {len(cached_data.get('sets', []))} sets for condition {condition_name}")
+            except Exception as e:
+                logger.warning(f"Failed to load condition {condition_name}: {e}")
+        
+        logger.info(f"Loaded a total of {len(self.data)} sequence sets in {time.time() - start_time:.2f} seconds")
+        
+        if not self.data:
+            # Check for chunked data (for large datasets)
+            chunks_dir = os.path.join(self.cache_dir, "chunks")
+            if os.path.exists(chunks_dir):
+                logger.info(f"Checking for chunked data in {chunks_dir}")
+                chunk_files = glob.glob(os.path.join(chunks_dir, "*.pkl"))
+                
+                if chunk_files:
+                    logger.info(f"Found {len(chunk_files)} chunk files")
+                    for chunk_file in chunk_files:
+                        try:
+                            with open(chunk_file, 'rb') as f:
+                                chunk_data = pickle.load(f)
+                            self.data.extend(chunk_data)
+                            logger.info(f"Loaded {len(chunk_data)} sets from chunk {os.path.basename(chunk_file)}")
+                        except Exception as e:
+                            logger.warning(f"Failed to load chunk {os.path.basename(chunk_file)}: {e}")
             
-            if len(df) < self.set_size:
-                logger.warning(f"Condition {condition_name} has only {len(df)} sequences, "
-                               f"which is less than the required set_size {self.set_size}. Skipping.")
-                continue
-            
-            # Compute quantiles and group sequences
-            quantile_groups = self._compute_quantiles(df)
-            
-            # Log the size of each quantile group (first 5 and last 5 for brevity)
-            quantile_keys = sorted(quantile_groups.keys())
-            for q in quantile_keys[:5] + quantile_keys[-5:]:
-                logger.info(f"Condition {condition_name}, Quantile {q}: {len(quantile_groups[q])} sequences")
-            
-            if len(quantile_groups) < self.window_width:
-                logger.warning(f"Condition {condition_name} has only {len(quantile_groups)} quantile groups, "
-                               f"which is less than the window width {self.window_width}. Skipping.")
-                continue
-            
-            if self.cache_quantiles:
-                # Store quantile groups in memory
-                self.condition_data[condition_name] = {
-                    'file_path': file_path,
-                    'quantile_groups': quantile_groups
-                }
-            else:
-                # Just store the file path and quantile stats to save memory
-                self.condition_data[condition_name] = {
-                    'file_path': file_path,
-                    'quantile_sizes': {q: len(seqs) for q, seqs in quantile_groups.items()}
-                }
-            
-            # Create sets using sliding window
-            self._create_sets_for_condition(condition_name, quantile_groups)
-        
-        logger.info(f"Created a total of {len(self.data)} sequence sets")
-    
-    def _create_sets_for_condition(self, condition_name, quantile_groups):
-        """
-        Create sets for a specific condition using sliding window over quantiles.
-        Fully vectorized implementation using NumPy for parallel processing.
-        
-        Args:
-            condition_name: Name of the condition
-            quantile_groups: Dict mapping quantile index to list of sequences
-        """
-        # Get sorted list of available quantiles
-        available_quantiles = sorted(quantile_groups.keys())
-        
-        if len(available_quantiles) < self.window_width:
-            logger.warning(f"Not enough quantile groups for condition {condition_name}. Skipping.")
-            return
-            
-        # Determine number of sets to create
-        total_seqs = sum(len(seqs) for seqs in quantile_groups.values())
-        if self.num_sets is None:
-            # Calculate how many sets we need to approximately cover all sequences
-            self.num_sets = max(1, total_seqs // self.set_size)
-        
-        logger.info(f"Creating {self.num_sets} sets for condition {condition_name}")
-        
-        # Find the valid range for center quantiles
-        min_idx = self.window_width // 2
-        max_idx = len(available_quantiles) - (self.window_width // 2) - 1
-        
-        if max_idx < min_idx:
-            logger.warning(f"Not enough quantiles for window width {self.window_width} in condition {condition_name}")
-            return
-        
-        # Step 1: Create a mapping to store all sequences by quantile index
-        # This helps with efficient sequence access
-        quantile_to_idx = {q: i for i, q in enumerate(available_quantiles)}
-        idx_to_quantile = {i: q for i, q in enumerate(available_quantiles)}
-        
-        # Step 2: Convert sequence lists to a numpy array of pointers for efficient indexing
-        all_seqs_by_quantile = []
-        seq_counts = []
-        # compute minimum seqs per quantile
-        min_seqs_per_quantile = min([len(seqs) for seqs in quantile_groups.values()])
-        for q in available_quantiles:
-            all_seqs_by_quantile.append(np.array(quantile_groups[q][:min_seqs_per_quantile], dtype=object))
-            seq_counts.append(len(quantile_groups[q]))
-
-        all_seqs_by_quantile = np.array(all_seqs_by_quantile)
-        
-        # Step 3: Randomly select center indices for all sets at once
-        center_indices = np.random.randint(min_idx, max_idx + 1, size=self.num_sets)
-        
-        # Step 4: Create window offsets in a vectorized way
-        window_offsets = np.arange(-(self.window_width // 2), (self.window_width // 2) + 1)
-
-        sets = [
-            {
-                "condition": condition_name,
-                "center_quantile": idx_to_quantile[center_indices[i]],
-                "window_width": self.window_width,
-                "sequences": self._select_sequences_for_set(
-                    center_indices[i], 
-                    window_offsets, 
-                    available_quantiles, 
-                    all_seqs_by_quantile
-                )
-            }
-            for i in range(self.num_sets)
-        ]
-        
-        # Step 5: Create all the data structure at once
-        self.data.extend(sets)
-        
-    def _select_sequences_for_set(self, center_idx, window_offsets, available_quantiles, all_seqs_by_quantile):
-        """
-        Select sequences for a single set using vectorized operations.
-        
-        Args:
-            center_idx: The center quantile index
-            window_offsets: Array of window offsets
-            available_quantiles: Sorted list of all available quantiles
-            all_seqs_by_quantile: List of sequence lists for each quantile
-            
-        Returns:
-            List of selected sequences
-        """
-        # Calculate valid quantile indices for this center
-        q_indices = center_idx + window_offsets
-        valid_indices = (q_indices >= 0) & (q_indices < len(available_quantiles))
-        valid_q_indices = q_indices[valid_indices]
-        
-        # Collect all sequences in the window
-        window_seqs = all_seqs_by_quantile[valid_q_indices].flatten()
-
-        # Always sample with replacement for maximum speed
-        # This ensures all sets have exactly set_size sequences
-        indices = np.random.choice(window_seqs.shape[0], self.set_size, replace=True)
-        selected_seqs = window_seqs[indices]
-        return selected_seqs
-    
-    def _encode_dna_sequence(self, sequence):
-        """
-        One-hot encode a DNA sequence.
-        
-        Args:
-            sequence: DNA sequence string
-            
-        Returns:
-            One-hot encoded tensor
-        """
-        # Ensure sequence is a string and uppercase
-        if not isinstance(sequence, str):
-            sequence = str(sequence)
-        sequence = sequence.upper()
-        
-        # Replace any invalid characters with 'N'
-        sequence = ''.join(base if base in 'ACGT' else 'N' for base in sequence)
-        
-        # Truncate if necessary
-        sequence = sequence[:self.max_seq_length]
-        
-        # Convert to indices using vectorized operations
-        indices = torch.tensor([self.dna_vocab.get(base, self.dna_vocab["N"]) for base in sequence])
-        
-        # Pad to max_seq_length
-        padded_indices = torch.full((self.max_seq_length,), self.dna_vocab["N"])
-        padded_indices[:len(indices)] = indices
-        
-        # One-hot encode using scatter_
-        one_hot = torch.zeros(self.max_seq_length, self.vocab_size)
-        one_hot.scatter_(1, padded_indices.unsqueeze(1), 1.0)
-            
-        return one_hot
-    
-    def _tokenize_for_hyena(self, sequence):
-        """
-        Tokenize a DNA sequence for HyenaDNA.
-        
-        Args:
-            sequence: DNA sequence string
-            
-        Returns:
-            Tokenized tensor and attention mask
-        """
-        # Ensure sequence is a string and uppercase
-        if not isinstance(sequence, str):
-            sequence = str(sequence)
-        sequence = sequence.upper()
-        
-        # Replace any invalid characters with 'N'
-        sequence = ''.join(base if base in 'ACGT' else 'N' for base in sequence)
-        
-        # Truncate if necessary - leave room for special tokens
-        effective_max_length = self.max_seq_length - 2  # -2 for special tokens
-        sequence = sequence[:effective_max_length]
-
-        # Tokenize with special tokens
-        tokens = self.hyena_tokenizer(
-            sequence, 
-            padding='max_length', 
-            truncation=True, 
-            max_length=self.max_seq_length,
-            add_special_tokens=True,  # This will add special tokens
-            return_tensors='pt'
-        )
-        
-        return tokens.input_ids[0], tokens.attention_mask[0]
-
+            if not self.data:
+                raise ValueError(f"No valid data found in cache directory: {self.cache_dir}")
     
     def __len__(self):
         return len(self.data)
     
     def __getitem__(self, idx):
         item = self.data[idx]
-        sequences = item["sequences"]
-            
-        # Batch process sequences for encoder
-        encoder_inputs = torch.stack([self._encode_dna_sequence(seq) for seq in sequences])
-
-        # Batch process sequences for HyenaDNA
-        hyena_input_ids = []
-        hyena_attention_masks = []
         
-        for seq in sequences:
-            input_ids, attention_mask = self._tokenize_for_hyena(seq)
-            hyena_input_ids.append(input_ids)
-            hyena_attention_masks.append(attention_mask)
-        
-        hyena_input_ids = torch.stack(hyena_input_ids)
-        hyena_attention_masks = torch.stack(hyena_attention_masks)
-
+        # Return pre-tokenized data if available
         return {
-            'condition': item["condition"],
-            'center_quantile': item["center_quantile"],
+            'condition': item.get("condition", "unknown"),
+            'center_quantile': item.get("center_quantile", 0),
             'samples': {
-                'encoder_inputs': encoder_inputs,
-                'hyena_input_ids': hyena_input_ids,
-                'hyena_attention_mask': hyena_attention_masks
+                'encoder_inputs': item["tokenized"]["encoder_inputs"],
+                'hyena_input_ids': torch.flip(item["tokenized"]["hyena_input_ids"], [1]),
+                'hyena_attention_mask': torch.flip(item["tokenized"]["hyena_attention_mask"], [1])
             },
-            'raw_texts': sequences
-        } 
+            'raw_texts': item.get("sequences", []).tolist()
+        }
+    
+    def split_train_eval(self, k=5, eval_ratio=0.2, seed=None):
+        """
+        Split the dataset into training and evaluation sets.
+        
+        For evaluation, filter out sets containing data from the top k quantiles.
+        
+        Args:
+            k: Number of top quantiles to reserve for evaluation
+            eval_ratio: Ratio of evaluation data (out of eligible sets)
+            seed: Random seed for reproducibility
+            
+        Returns:
+            train_indices, eval_indices: Lists of indices for training and evaluation
+        """
+        if seed is not None:
+            np.random.seed(seed)
+            
+        # Get all available quantiles from the data
+        all_quantiles = set()
+        for item in self.data:
+            all_quantiles.add(item.get("center_quantile", 0))
+        
+        # Sort quantiles and identify the top k
+        sorted_quantiles = sorted(list(all_quantiles))
+        if len(sorted_quantiles) <= k:
+            logger.warning(f"Not enough quantiles ({len(sorted_quantiles)}) to reserve top {k}. Using half.")
+            k = max(1, len(sorted_quantiles) // 2)
+            
+        top_k_quantiles = sorted_quantiles[-k:]
+        logger.info(f"Using top {k} quantiles for evaluation: {top_k_quantiles}")
+        
+        # Find sets eligible for evaluation (having center in top k)
+        eval_eligible_indices = []
+        train_indices = []
+        
+        for i, item in enumerate(self.data):
+            if item.get("center_quantile", 0) in top_k_quantiles:
+                eval_eligible_indices.append(i)
+            else:
+                train_indices.append(i)
+        
+        # Determine the number of evaluation sets
+        num_eval = min(int(len(eval_eligible_indices) * eval_ratio), len(eval_eligible_indices))
+        
+        # Randomly select evaluation sets from eligible indices
+        if num_eval > 0:
+            eval_indices = np.random.choice(eval_eligible_indices, num_eval, replace=False).tolist()
+        else:
+            eval_indices = []
+            
+        logger.info(f"Split dataset: {len(train_indices)} training sets, {len(eval_indices)} evaluation sets")
+        
+        return train_indices, eval_indices
+    
+    def get_train_eval_subsets(self, k=5, eval_ratio=0.2, seed=None):
+        """
+        Create training and evaluation subset datasets.
+        
+        Args:
+            k: Number of top quantiles to reserve for evaluation
+            eval_ratio: Ratio of evaluation data (out of eligible sets)
+            seed: Random seed for reproducibility
+            
+        Returns:
+            train_dataset, eval_dataset: Subset datasets for training and evaluation
+        """
+        from torch.utils.data import Subset
+        
+        train_indices, eval_indices = self.split_train_eval(k, eval_ratio, seed)
+        train_dataset = Subset(self, train_indices)
+        eval_dataset = Subset(self, eval_indices)
+        
+        return train_dataset, eval_dataset 

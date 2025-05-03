@@ -12,7 +12,6 @@ defaults:
   - /scheduler: cosine
   - /training: long_epochs
 
-
 # Experiment-specific parameters
 latent_dim: 64
 hidden_dim: 128
