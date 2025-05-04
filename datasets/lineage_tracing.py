@@ -65,9 +65,9 @@ class LTSeqDataset(Dataset):
         self,
         set_size: int = 100,
         min_cells: int = 3,
-        n_pcs: int = 50,
+        # n_pcs: int = 50,
         root: str = './data',
-        data_shape: List[int] = [50],
+        data_shape: List[int] = [1000],
         seed: Optional[int] = None
     ):
         if seed is not None:
@@ -76,24 +76,24 @@ class LTSeqDataset(Dataset):
 
         self.set_size = set_size
         self.min_cells = min_cells
-        self.n_pcs = n_pcs
+        # self.n_pcs = n_pcs
         self.root = root
         self.data_shape = data_shape
 
         adata = GetLTSeqData(root)
-        sc.tl.pca(adata, n_comps=n_pcs)
+        # sc.tl.pca(adata, n_comps=n_pcs)
         self.adata = adata
 
         self.data, self.metadata = self.generate_clone_sets()
         self.n_sets = len(self.data)
 
     def generate_clone_sets(self):
-        latents = self.adata.obsm['X_pca']
+        feats = self.adata.X#.obsm['X_pca']
         df = self.adata.obs[['clone', 'time']].astype(str)
         df['cluster_id'] = df.agg('--'.join, axis=1)
 
         clusters = df['cluster_id'].unique()
-        L = latents.shape[1]
+        F = feats.shape[1]
         tensor_list = []
         metadata = []
 
@@ -105,18 +105,18 @@ class LTSeqDataset(Dataset):
             for set_num in range(num_sets):
                 start = set_num * self.set_size
                 end = min(start + self.set_size, n_cells)
-                selected = latents[idxs[start:end]]
+                selected = feats[idxs[start:end]]
 
                 if len(selected) >= self.min_cells:
                     if len(selected) < self.set_size:
                         pad_size = self.set_size - len(selected)
                         pad_idxs = np.random.choice(idxs[:end], pad_size, replace=True)
-                        selected = np.vstack([selected, latents[pad_idxs]])
+                        selected = np.vstack([selected, feats[pad_idxs]])
 
                     tensor_list.append(torch.tensor(selected, dtype=torch.float32))
                     metadata.append(cluster.split('--') + [f"set{set_num+1}"])
 
-        tensor = torch.stack(tensor_list) if tensor_list else torch.empty((0, self.set_size, L))
+        tensor = torch.stack(tensor_list) if tensor_list else torch.empty((0, self.set_size, F))
         return tensor, metadata
 
     def __len__(self):

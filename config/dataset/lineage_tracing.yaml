@@ -1,8 +1,7 @@
+# @package _global_.dataset
 _target_: datasets.lineage_tracing.LTSeqDataset
-
 set_size: 100
 min_cells: 3
-n_pcs: 50
-data_shape: [50]
+data_shape: [1000,]
 root: /orcd/data/omarabu/001/gokul/DistributionEmbeddings/data
 seed: ${seed}
