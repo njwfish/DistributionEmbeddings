@@ -1,0 +1,8 @@
+# @package _global_.dataset
+_target_: datasets.ops.OPSDataset
+set_size: ${experiment.set_size}
+seed: ${seed} 
+data_shape: [2, 104, 104]
+prob_spatial: 0.5
+spatial_kernel_width: 10
+replace: true
