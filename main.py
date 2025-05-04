@@ -7,10 +7,9 @@ import wandb
 import os
 
 # Import our resolver for sum operations
-import utils.config_resolvers as config_resolvers
 import utils.hash_utils as hash_utils
 
-@hydra.main(config_path="config", config_name="simple_distn_exp", version_base="1.1")
+@hydra.main(config_path="config", config_name="config", version_base="1.1")
 def main(cfg: DictConfig):
     logger = logging.getLogger(__name__)
     logger.info("\n" + OmegaConf.to_yaml(cfg))
@@ -46,7 +45,22 @@ def main(cfg: DictConfig):
     try:
         # Create the dataset
         dataset = hydra.utils.instantiate(cfg.dataset)
-        dataloader = DataLoader(dataset, batch_size=cfg.experiment.batch_size, shuffle=True)
+
+        mixer = hydra.utils.instantiate(cfg.mixer)
+
+        # Improved DataLoader with parallel workers and pinned memory
+        num_workers = min(8, os.cpu_count() or 4)  # Use at most 8 workers or available CPU cores
+        dataloader = DataLoader(
+            dataset, 
+            batch_size=cfg.experiment.batch_size, 
+            shuffle=True,
+            prefetch_factor=2,
+            num_workers=num_workers,  # Parallel data loading
+            pin_memory=True,  # Pin memory for faster data transfer to GPU
+            persistent_workers=True if num_workers > 0 else False,  # Keep workers alive between iterations
+            collate_fn=mixer.collate_fn if mixer is not None else None
+        )
+        
         
         # Create encoder
         encoder = hydra.utils.instantiate(cfg.encoder)

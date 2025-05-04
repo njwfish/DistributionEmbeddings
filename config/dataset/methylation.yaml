@@ -1,0 +1,10 @@
+# @package _global_.dataset
+_target_: datasets.dna_dataset.DNADataset
+data_dir: "/orcd/data/omarabu/001/gokul/DistributionEmbeddings/data/geo_downloads"
+set_size: ${experiment.set_size}
+min_seqs_per_tissue: 50
+max_seq_length: 128
+encoder_tokenizer: "dna"
+hyena_tokenizer: "char"
+download: false
+seed: ${seed} 

@@ -1,8 +1,0 @@
-_target_: training.Trainer
-num_epochs: 500
-log_interval: 50
-save_interval: 100
-eval_interval: 10
-early_stopping: true
-patience: 20
-use_tqdm: true 

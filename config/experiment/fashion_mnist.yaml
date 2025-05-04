@@ -1,0 +1,22 @@
+# @package _global_.experiment
+
+# Experiment name and description
+name: fashion_mnist
+description: "FashionMNIST experiment with distribution embeddings"
+
+# Override defaults from config.yaml
+defaults:
+  - /dataset: fashion_mnist
+  - /encoder: conv_gnn
+  - /model: context_unet  # Use the context_unet model for DDPM
+  - /generator: ddpm  # Use the DDPM generator
+  - /mixer: dirichlet_k
+
+# Experiment-specific parameters
+latent_dim: 16  # Dimension of latent space for the distribution encoder
+hidden_dim: 64  # Hidden dimension for neural networks
+set_size: 100  # Size of each set of FashionMNIST items
+batch_size: 10  # Batch size for training
+n_mix: 3  # Number of mixtures
+alpha: 1.0  # Dirichlet parameter
+lr: 2e-4  # Learning rate

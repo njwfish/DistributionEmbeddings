@@ -1,0 +1,12 @@
+# @package _global_.encoder
+_target_: encoder.dna_conv_encoder.DNAConvEncoder
+in_channels: 5  # ACGTN one-hot encoding
+hidden_channels: 64
+out_channels: 128
+hidden_dim: 256
+latent_dim: ${experiment.latent_dim}
+num_layers: 3
+kernel_size: 7
+seq_length: ${dataset.max_seq_length}
+pool_type: "mean"
+agg_type: "mean" 

@@ -51,7 +51,9 @@ def ddpm_schedules(beta1, beta2, T):
 
 
 class DDPM(nn.Module):
-    def __init__(self, model, betas, n_T, drop_prob=0.1, noise_shape=None):
+    def __init__(
+            self, model, betas, n_T, drop_prob=0.1, noise_shape=None, subsample_indices=None
+    ):
         super(DDPM, self).__init__()
         self.model = model
         self.noise_shape = noise_shape
@@ -64,7 +66,8 @@ class DDPM(nn.Module):
         self.n_T = n_T
         self.drop_prob = drop_prob
         self.loss_mse = nn.MSELoss()
-
+        self.subsample_indices = subsample_indices
+        
     def forward(self, x, c):
         """
         this method is used in training, so samples t and noise randomly
@@ -84,8 +87,18 @@ class DDPM(nn.Module):
         # dropout context with some probability
         # context_mask = torch.bernoulli(torch.zeros(c.shape[0])+self.drop_prob).to(self.device)
         
-        # return MSE between added noise, and our predicted noise
-        return self.loss_mse(noise, self.model(x_t, c, _ts[:, None] / self.n_T))
+        # sample random indices across features
+        if self.subsample_indices is not None:
+            indices = torch.randperm(x.shape[1])[:self.subsample_indices].to(x.device)
+            # return MSE between added noise, and our predicted noise
+            return self.loss_mse(
+                noise[:, indices], self.model(x_t, c, _ts[:, None] / self.n_T, subsample_indices=indices)
+            )
+        else:
+            # return MSE between added noise, and our predicted noise
+            return self.loss_mse(
+                noise, self.model(x_t, c, _ts[:, None] / self.n_T)
+            )
     
     def loss(self, x, c):
         return self.forward(x, c)
@@ -111,7 +124,15 @@ class DDPM(nn.Module):
 
             z = torch.randn_like(x).to(device) if i > 1 else 0
 
-            eps = self.model(x, context, t_is)
+            with torch.no_grad():
+                if self.subsample_indices is not None:
+                    num_nodes = x.shape[1]
+                    node_chunks = np.array_split(np.arange(num_nodes), self.subsample_indices)
+                    eps = torch.zeros_like(x)
+                    for j in node_chunks:
+                        eps[:, j] = self.model(x, context, t_is, subsample_indices=torch.tensor(j).to(device))
+                else:
+                    eps = self.model(x, context, t_is)  
 
             x = (
                 self.oneover_sqrta[i] * (x - eps * self.mab_over_sqrtmab[i])

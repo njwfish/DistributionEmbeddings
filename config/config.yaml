@@ -1,0 +1,37 @@
+# @package _global_
+
+# Default configurations
+defaults:
+  - dataset: none  # Dataset-specific config
+  - encoder: none  # Default encoder
+  - model: none  # Default model for DDPM
+  - generator: none  # Default generator
+  - optimizer: adam  # Default optimizer
+  - scheduler: none  # Default scheduler
+  - training: default  # Default training config
+  - mixer: none  # Default mixer
+  - wandb: default  # Default W&B config
+  - experiment: mvn  # Experiment-specific configurations
+  - override hydra/launcher: slurm
+  - _self_
+
+# Basic experiment settings
+experiment_name: ${experiment.name}  # Name will be defined in experiment config
+seed: 42
+device: cuda
+
+# Hydra-related settings
+hydra:
+  run:
+    dir: outputs/${experiment_name}/${now:%Y-%m-%d_%H-%M-%S}
+  sweep:
+    dir: multirun/${experiment_name}/${now:%Y-%m-%d_%H-%M-%S}
+    subdir: ${hydra.job.num}
+  job:
+    config:
+      override_dirname:
+        exclude_keys:
+          - seed
+          - device
+          - hydra
+          - experiment_name 

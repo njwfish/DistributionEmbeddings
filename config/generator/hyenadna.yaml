@@ -1,0 +1,9 @@
+# @package _global_.generator
+_target_: generator.hyenadna_generator.HyenaDNAGenerator
+latent_dim: ${experiment.latent_dim}
+condition_dim: 128
+d_model: 128
+n_layer: 6
+max_seq_len: ${dataset.max_seq_length}
+condition_method: "prefix"
+temperature: 1.0

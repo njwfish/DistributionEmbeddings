@@ -1,5 +1,8 @@
+# @package _global_.dataset
 _target_: datasets.distribution_datasets.NormalDistributionDataset
 n_sets: 10000
 set_size: 100
-data_shape: [5]
+data_shape: [2]
 seed: ${seed} 
+prior: normal
+prior_params: [0, 1]

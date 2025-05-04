@@ -1,5 +1,6 @@
 import torch
 import warnings
+from geomloss import SamplesLoss
 
 def sliced_wasserstein_distance(X1, X2, n_projections=100, p=2):
     """
@@ -99,74 +100,26 @@ def mmd(X, Y, gamma=None, p: int = 2) -> torch.Tensor:
     
     return mmd_squared
 
-def sinkhorn(
-    X,
-    Y,
-    reg = 1.,
-    max_iter=50,
-    stop_thresh=1e-9,
-    eps = 1e-16,
-    warn=True,
-    p = 2
-):
+
+def pairwise_sinkhorn(X, sinkhorn_loss):
     """
-    X: (n, d) tensor of source samples
-    Y: (m, d) tensor of target samples
-    reg: regularization parameter
-    Returns: Sinkhorn loss between empirical distributions of X and Y
+    X: (b, n, d) tensor
+    returns: (b, b) sinkhorn loss matrix
     """
-    # Device and dtype setup
-    device = X.device
-    dtype = X.dtype
+    b = X.shape[0]
     
-  
-    # Create uniform distributions
-    n = X.shape[0]
-    m = Y.shape[0]
-    a = torch.ones(n, 1, device=device, dtype=dtype) / n
-    b = torch.ones(m, 1, device=device, dtype=dtype) / m
-
-    # Compute pairwise cost matrix (squared Euclidean)
-
-    M = torch.cdist(X, Y, p=p)**p
-    #M = pairwise_cosine_distance(X,Y)
-    #reg = 0.1 * torch.median(M)
-    #reg = 0.1 * torch.median(M)
-
-    # Initialize dual vectors
-    u = torch.ones(n, 1, device=device, dtype=dtype) / n
-    v = torch.ones(m, 1, device=device, dtype=dtype) / m
-
-    # Compute kernel matrix with numerical stability
-    K = torch.exp(-M / (reg + eps))  # (n, m)
-    # Scaling vector precomputation
-    Kp = (1 / a) * K  # (n, 1) * (n, m) = (n, m)
-
-    # Sinkhorn iterations
-    for ii in range(max_iter):
-        # uprev = u.clone()
-        # vprev = v.clone()
-
-        # Update v then u
-        Ktu = torch.mm(K.t(), u)  # (m, 1)
-        v = b / (Ktu + eps)  # (m, 1)
-        u = 1.0 / (torch.mm(Kp, v) + eps)  # (n, 1)
-
-        # have to comment this because we want to
-        # vmap which cannot be done through control flow
-        # Check for numerical issues
-        # if (torch.any(Ktu.abs() < stop_thresh) or 
-        #     torch.any(torch.isnan(u)) or 
-        #     torch.any(torch.isnan(v)) or 
-        #     torch.any(torch.isinf(u)) or 
-        #     torch.any(torch.isinf(v))
-        # ):
-        #    u = uprev
-        #    v = vprev
-        #    break
-
-    # Compute transport plan and loss
-    P = u * K * v.t()  # (n, m)
-    loss = torch.sum(P * M)
-   
-    return loss.squeeze()
+    # expand X to compare all pairs
+    X1 = X.unsqueeze(1).expand(-1, b, -1, -1)  # (b, b, n, d)
+    X2 = X.unsqueeze(0).expand(b, -1, -1, -1)  # (b, b, n, d)
+    
+    # flatten for vmap
+    X1_flat = X1.reshape(-1, *X.shape[1:])
+    X2_flat = X2.reshape(-1, *X.shape[1:])
+    
+    # compute all pairs
+    all_pairs = sinkhorn_loss(X1_flat, X2_flat)
+    
+    # reshape back
+    loss_matrix = all_pairs.reshape(b, b)
+    
+    return loss_matrix

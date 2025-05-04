@@ -1,0 +1,30 @@
+# @package _global_.experiment
+
+# Experiment name and description
+name: pfam_exp
+description: "Pfam protein families experiment using ESM embeddings and ProGen2 for generation"
+
+# Override defaults from config.yaml
+defaults:
+  - /dataset: pfam
+  - /encoder: esm
+  - /generator: progen2
+  - /scheduler: cosine
+
+# Experiment-specific parameters
+latent_dim: 128
+hidden_dim: 256
+batch_size: 4
+lr: 2e-5
+
+# ESM model settings
+esm_model_name: 'facebook/esm2_t6_8M_UR50D'
+
+# ProGen2 settings
+progen2_model_name: 'hugohrban/progen2-small'
+max_length: 256
+tokenize: false 
+condition_dim: 32
+freeze_progen2: false
+condition_method: prefix
+temperature: 1.0

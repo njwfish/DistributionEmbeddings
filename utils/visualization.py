@@ -3,6 +3,8 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from torchvision.utils import make_grid
+import os
+import textwrap
 
 def visualize_data(save_path, real, generated, max_features_to_plot=10):
     if len(real.shape) == 2: # [set_size, features]
@@ -10,20 +12,55 @@ def visualize_data(save_path, real, generated, max_features_to_plot=10):
         generated_flat = generated.numpy()
         _, features = real.shape
 
-        if features > max_features_to_plot:
-            random_features = np.random.choice(features, size=max_features_to_plot, replace=False)
-            original_flat = original_flat[:, random_features]
-            generated_flat = generated_flat[:, random_features]
-        
-        # Create a pairplot of the original and generated data
-        # save to outputs config directory
-        df = pd.DataFrame(np.concatenate([original_flat, generated_flat], axis=0))
-        df['hue'] = ['original'] * len(original_flat) + ['generated'] * len(generated_flat)
-        sns.pairplot(df, hue='hue')
-        plt.savefig(save_path)
-        plt.close()
+        if features == 1:
+            # create histogram of the original and generated data
+            plt.hist(original_flat, bins=20, alpha=0.5, label='Original')
+            plt.hist(generated_flat, bins=20, alpha=0.5, label='Generated')
+            plt.legend()
+            plt.savefig(save_path)
+            plt.close()
+        elif features == 2:
+            # scatter plot the original and generated data
+            plt.scatter(original_flat[:, 0], original_flat[:, 1], label='Original')
+            plt.scatter(generated_flat[:, 0], generated_flat[:, 1], label='Generated')
+            plt.legend()
+            plt.savefig(save_path)
+            plt.close()            
+        elif features <= max_features_to_plot:
+            # Create a pairplot of the original and generated data
+            # save to outputs config directory
+            df = pd.DataFrame(np.concatenate([original_flat, generated_flat], axis=0))
+            df['hue'] = ['original'] * len(original_flat) + ['generated'] * len(generated_flat)
+            sns.pairplot(df, hue='hue')
+            plt.savefig(save_path)
+            plt.close()
+        else:
+            # scatter plot the first and second moments of the original and generated data
+            original_mean = np.mean(original_flat, axis=0)
+            original_std = np.std(original_flat, axis=0)
+            generated_mean = np.mean(generated_flat, axis=0)
+            generated_std = np.std(generated_flat, axis=0)
 
-    elif len(real.shape) == 3: # [set_size, channels, height, width]
+            # plot the first and second moments of the original and generated data
+            r2_mean = np.corrcoef(original_mean, generated_mean)[0, 1]**2
+            r2_std = np.corrcoef(original_std, generated_std)[0, 1]**2
+            fig, axes = plt.subplots(2, 1, figsize=(10, 10))
+            axes[0].scatter(original_mean, generated_mean)
+            axes[0].set_title("Original Mean vs Generated Mean") 
+            # put text in the top left of the plot
+            axes[0].text(0.05, 0.95, f"R2: {r2_mean:.2f}", ha='left', va='top', transform=axes[0].transAxes)
+            axes[1].scatter(original_std, generated_std)
+            axes[1].set_title("Original Std vs Generated Std")
+            axes[1].text(0.05, 0.95, f"R2: {r2_std:.2f}", ha='left', va='top', transform=axes[1].transAxes)
+            # add axis labels
+            axes[0].set_xlabel("Original Mean")
+            axes[0].set_ylabel("Generated Mean")
+            axes[1].set_xlabel("Original Std")
+            axes[1].set_ylabel("Generated Std")
+            plt.savefig(save_path)
+            plt.close()
+
+    elif len(real.shape) == 4: # [set_size, channels, height, width]
 
         # Create grids of real and generated images
         real_grid = make_grid(real*-1 + 1, nrow=10)
@@ -48,3 +85,26 @@ def visualize_data(save_path, real, generated, max_features_to_plot=10):
         # Save the figure
         plt.savefig(save_path)
         plt.close()
+
+def visualize_text_data(output_dir, original_texts, generated_texts):
+    """
+    Visualize original and generated text data from the PubMed dataset.
+    
+    Args:
+        output_dir: Directory to save the visualizations
+        original_texts: Original texts from the dataset
+        generated_texts: Generated texts from the model
+        max_examples: Maximum number of examples to visualize
+        max_texts_per_example: Maximum number of texts per example
+    """
+    os.makedirs(output_dir, exist_ok=True)
+    
+    for i in range(len(original_texts)):
+        df_original = pd.DataFrame(original_texts[i])
+        df_original['type'] = 'original'
+        df_generated = pd.DataFrame(generated_texts[i])
+        df_generated['type'] = 'generated'
+        df_combined = pd.concat([df_original, df_generated], axis=0)
+        df_combined.to_csv(os.path.join(output_dir, f"text_samples_{i}.csv"), index=False)
+    
+    

@@ -1,0 +1,8 @@
+# @package _global_.generator
+_target_: generator.wormhole.WormholeGenerator
+latent_dim: ${experiment.latent_dim}
+hidden_dim: ${experiment.hidden_dim}
+data_shape: ${dataset.data_shape}
+set_size: ${dataset.set_size}
+layers: 2
+heads: 4

@@ -1,0 +1,6 @@
+# @package _global_.encoder
+_target_: encoder.kernel_mean.KMEEncoder
+d: ${experiment.latent_dim}
+device: ${device}
+seed: ${seed}
+data_shape: ${dataset.data_shape}

@@ -1,0 +1,9 @@
+# @package _global_.dataset
+_target_: datasets.mnist.MNISTDataset
+set_size: 100
+root: /orcd/data/omarabu/001/njwfish/DistributionEmbeddings/data
+train: true
+download: true
+seed: ${seed} 
+data_shape: [1, 28, 28]
+n_classes: ${experiment.n_mix}

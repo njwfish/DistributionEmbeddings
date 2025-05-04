@@ -8,7 +8,8 @@ from tqdm import tqdm
 import logging
 import wandb
 from utils.hash_utils import get_output_dir, find_matching_output_dir
-from utils.visualization import visualize_data
+from utils.visualization import visualize_data, visualize_text_data
+
 class Trainer:
     def __init__(
         self,
@@ -16,9 +17,11 @@ class Trainer:
         log_interval=10,
         save_interval=20,
         eval_interval=5,
+        within_epoch_save_interval=10_000,
         early_stopping=True,
         patience=10,
         use_tqdm=True,
+        mask_context_prob=0.0
     ):
         """
         Initialize the trainer.
@@ -36,9 +39,11 @@ class Trainer:
         self.log_interval = log_interval
         self.save_interval = save_interval
         self.eval_interval = eval_interval
+        self.within_epoch_save_interval = within_epoch_save_interval
         self.early_stopping = early_stopping
         self.patience = patience
         self.use_tqdm = use_tqdm
+        self.mask_context_prob = mask_context_prob
         
         self.logger = logging.getLogger(__name__)
         self.best_loss = float('inf')
@@ -101,6 +106,8 @@ class Trainer:
             encoder.load_state_dict(checkpoint['encoder_state_dict'])
             generator.model.load_state_dict(checkpoint['generator_state_dict'])
             optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            if 'scheduler_state_dict' in checkpoint:
+                scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
             start_epoch = checkpoint['epoch']
             
             # Log resuming to W&B
@@ -125,15 +132,33 @@ class Trainer:
             
             # Train for one epoch
             for batch_idx, batch in enumerate(pbar):
-                samples = batch['samples'].to(device)
+                # Handle samples which can be either a tensor or a dictionary
+                if isinstance(batch['samples'], torch.Tensor):
+                    samples = batch['samples'].to(device)
+                    latent = encoder(samples)  # latent is num samples x num sets x latent dim
+                    
+                    if self.mask_context_prob > 0:
+                        context_mask = torch.bernoulli(torch.zeros(latent.shape[0])+self.mask_context_prob).to(latent.device)
+                        latent = latent * context_mask[:, None]
+                    loss = generator.loss(samples.view(-1, *samples.shape[2:]), latent)
+                else:
+                    # For dictionary samples (like PubMed dataset), move tensors to device
+                    samples = {}
+                    for key, value in batch['samples'].items():
+                        if isinstance(value, torch.Tensor):
+                            samples[key] = value.to(device)
+                        else:
+                            samples[key] = value
+
+                    # Encode samples to latent space
+                    latent = encoder(samples)
+                    if self.mask_context_prob > 0:
+                        context_mask = torch.bernoulli(torch.zeros(latent.shape[0])+self.mask_context_prob).to(latent.device)
+                        latent = latent * context_mask
+
+                    loss = generator.loss(samples, latent)
                 
                 optimizer.zero_grad()
-                
-                # Encode samples to latent space
-                latent = encoder(samples) # latent is num samples x num sets x latent dim
-                
-                # Calculate loss
-                loss = generator.loss(samples.view(-1, *samples.shape[2:]), latent)
                 
                 # Backpropagate
                 loss.backward()
@@ -156,6 +181,17 @@ class Trainer:
                             "batch/step": step,
                             "batch/epoch": epoch + 1,
                         }, step=step)
+
+                if batch_idx % self.within_epoch_save_interval == 0:
+                    checkpoint_path = os.path.join(output_dir, f"checkpoint_epoch_{epoch+1}.pt")
+                    torch.save({
+                        'epoch': epoch + 1,
+                        'encoder_state_dict': encoder.state_dict(),
+                        'generator_state_dict': generator.model.state_dict(),
+                        'optimizer_state_dict': optimizer.state_dict(),
+                        'scheduler_state_dict': scheduler.state_dict(),
+                    }, checkpoint_path)
+                    self.logger.info(f"Saved checkpoint to {checkpoint_path}")                
             
             # Calculate average loss for this epoch
             avg_epoch_loss = sum(epoch_losses) / len(epoch_losses)
@@ -190,6 +226,7 @@ class Trainer:
                     'encoder_state_dict': encoder.state_dict(),
                     'generator_state_dict': generator.model.state_dict(),
                     'optimizer_state_dict': optimizer.state_dict(),
+                    'scheduler_state_dict': scheduler.state_dict(),
                     'loss': avg_epoch_loss,
                 }, checkpoint_path)
                 self.logger.info(f"Saved checkpoint to {checkpoint_path}")
@@ -214,21 +251,60 @@ class Trainer:
 
                 # Generate some samples with the trained model
                 samples = self.generate_samples(encoder, generator, dataloader)
-                self.logger.info(f"Generated samples shape: {samples['generated'].shape}")
+                if samples is not None:
+                    self.logger.info(f"Original samples shape: {samples.get('original', 'N/A').shape if hasattr(samples.get('original', None), 'shape') else 'N/A'}")
+                    self.logger.info(f"Generated samples shape: {samples.get('generated', 'N/A').shape if hasattr(samples.get('generated', None), 'shape') else 'N/A'}")
                 
-                # Log generated samples to W&B (optional)
-                if wandb.run is not None and samples is not None:
-                    # We'll log just a few samples to avoid excessive data transfer
-                    n_examples = min(6, samples['original'].shape[0])
-                    
-                    for i in range(n_examples):
-                        save_path = os.path.join(output_dir, f"pairplot_generated_{i}.png")
-                        visualize_data(
-                            save_path, samples['original'][i], samples['generated'][i]
-                        )
-                        wandb.log({
-                            f"samples/generated_{i}": wandb.Image(save_path)
-                        })
+                    # Log generated samples to W&B (optional)
+                    if wandb.run is not None:
+                        n_examples = min(6, len(samples['original']))
+                        # Handle different types of samples
+                        if 'generated_texts' in samples:
+                            n_examples_per_example = min(6, len(samples['original_texts'][0]))
+                            # For text data, use our text visualization
+                            text_output_dir = os.path.join(output_dir, f"text_samples_epoch_{epoch+1}")
+                            visualize_text_data(
+                                text_output_dir,
+                                samples['original_texts'],
+                                samples['generated_texts']
+                            )
+
+                            # Create a dataframe with original and generated texts, first need to flatten into sets
+                            flat_original = []
+                            flat_generated = []
+                            set_indices = []
+                            for i in range(n_examples):
+                                for j in range(n_examples_per_example):
+                                    flat_original.append(samples['original_texts'][i][j])
+                                    flat_generated.append(samples['generated_texts'][i][j])
+                                    set_indices.append(i)
+
+                            import pandas as pd
+                            df = pd.DataFrame({
+                                'original': flat_original,
+                                'generated': flat_generated,
+                                'set_index': set_indices
+                            })
+
+                            print(df.head())
+
+                            # Log a single table with both original and generated texts
+                            wandb.log({
+                                "epoch/text_samples": wandb.Table(dataframe=df)
+                            }, step=(epoch + 1) * len(dataloader))
+                            
+                        elif 'original' in samples and 'generated' in samples and hasattr(samples['original'], 'shape'):
+                            # For numerical or image data, use the original visualization
+                            # We'll log just a few samples to avoid excessive data transfer
+                            n_examples = min(6, samples['original'].shape[0])
+                            for i in range(n_examples):
+                                save_path = os.path.join(output_dir, f"pairplot_{i}_epoch_{epoch+1}.png")
+                                visualize_data(
+                                    save_path, samples['original'][i], samples['generated'][i]
+                                )
+                                wandb.log({
+                                    f"samples/generated_{i}": wandb.Image(save_path)
+                                })
                 
                 # Check if this is the best model so far
                 if eval_loss < self.best_loss:
@@ -280,7 +356,7 @@ class Trainer:
         
         return output_dir, stats
     
-    def _evaluate(self, encoder, generator, dataloader, device):
+    def _evaluate(self, encoder, generator, dataloader, device, num_eval_batches=10):
         """Run evaluation and return average loss."""
         encoder.eval()
         generator.model.eval()
@@ -290,20 +366,34 @@ class Trainer:
         
         with torch.no_grad():
             for batch in dataloader:
-                samples = batch['samples'].to(device)
-                
-                # Encode samples to latent space
-                latent = encoder(samples)
-                
-                # Calculate loss
-                loss = generator.loss(samples.view(-1, *samples.shape[2:]), latent)
+                if num_eval_batches is not None and num_batches >= num_eval_batches:
+                    break
+                # Handle samples which can be either a tensor or a dictionary
+                if isinstance(batch['samples'], torch.Tensor):
+                    samples = batch['samples'].to(device)
+                    latent = encoder(samples)
+                    loss = generator.loss(samples.view(-1, *samples.shape[2:]), latent)
+                else:
+                    # For dictionary samples (like PubMed dataset), move tensors to device
+                    samples = {}
+                    for key, value in batch['samples'].items():
+                        if isinstance(value, torch.Tensor):
+                            samples[key] = value.to(device)
+                        else:
+                            samples[key] = value
+                    
+                    # Encode samples to latent space
+                    latent = encoder(samples)
+                    
+                    # Calculate loss
+                    loss = generator.loss(samples, latent)
                 
                 total_loss += loss.item()
                 num_batches += 1
         
         return total_loss / num_batches
     
-    def generate_samples(self, encoder, generator, dataloader, num_samples=100, device=None):
+    def generate_samples(self, encoder, generator, dataloader, num_samples=None, device=None):
         """Generate samples using the trained model."""
         if device is None:
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -316,16 +406,58 @@ class Trainer:
         
         with torch.no_grad():
             for batch in dataloader:
-                samples = batch['samples'].to(device)
-                
-                # Encode samples to latent space
-                latent = encoder(samples)
-                
-                # Generate new samples
-                generated = generator.sample(latent, num_samples=num_samples)
+                # Handle samples which can be either a tensor or a dictionary
+                if isinstance(batch['samples'], torch.Tensor):
+                    samples = batch['samples'].to(device)
+                    batch_size, set_size, *data_shape = samples.shape
+                    if num_samples is None:
+                        num_samples = set_size
+                    
+                    # Encode samples to latent space
+                    latent = encoder(samples)
+                    
+                    # Generate new samples
+                    generated = generator.sample(latent, num_samples=num_samples)
+                    
+                    return {
+                        'original': samples.cpu(),
+                        'generated': generated.cpu()
+                    }
+                else:
+                    # For dictionary samples (like PubMed dataset), move tensors to device
+                    samples = {}
+                    for key, value in batch['samples'].items():
+                        if isinstance(value, torch.Tensor):
+                            samples[key] = value.to(device)
+                        else:
+                            samples[key] = value
+                    
+                    # Keep raw texts for reference
+                    raw_texts = batch.get('raw_texts', None)
+                    set_size = len(raw_texts)
+                    num_sets = len(raw_texts[0])
 
-                return {
-                    'original': samples.cpu(),
-                    'generated': generated.cpu()
-                } 
-            
+                    # reshape raw_texts list from [set_size, num_samples] to [num_samples, set_size]
+                    raw_texts = [[raw_texts[j][i] for j in range(set_size)] for i in range(num_sets)]
+
+                    # Encode samples to latent space
+                    latent = encoder(samples)
+                    
+                    # Generate new samples
+                    generated = generator.sample(latent, num_samples=set_size, return_texts=True)
+                    
+                    if isinstance(generated, tuple):
+                        # If generator returns both token ids and decoded texts
+                        generated_ids, generated_texts = generated
+                        return {
+                            'original': samples,
+                            'generated': generated_ids.cpu(),
+                            'original_texts': raw_texts,
+                            'generated_texts': generated_texts
+                        }
+                    else:
+                        return {
+                            'original': samples,
+                            'generated': generated.cpu(),
+                            'original_texts': raw_texts
+                        }

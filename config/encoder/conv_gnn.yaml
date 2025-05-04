@@ -1,12 +1,13 @@
+# @package _global_.encoder
 _target_: encoder.conv_gnn.ConvDistributionEncoder
-in_channels: 1  # For MNIST
+in_channels: ${dataset.data_shape[0]}
 hidden_channels: 32
 out_channels: 32
 hidden_dim: ${experiment.hidden_dim}
 latent_dim: ${experiment.latent_dim}
 num_layers: 2
 kernel_size: 3
-height: 28  # MNIST image height
-width: 28  # MNIST image width
+height: ${dataset.data_shape[1]}
+width: ${dataset.data_shape[2]}
 pool_type: mean
 agg_type: mean 

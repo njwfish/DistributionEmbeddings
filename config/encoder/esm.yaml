@@ -1,0 +1,10 @@
+# @package _global_.encoder
+_target_: encoder.protein_encoders.ProteinSetEncoder
+esm_model_name: ${experiment.esm_model_name}
+latent_dim: ${experiment.latent_dim}
+hidden_dim: ${experiment.hidden_dim}
+pooling: 'mean'
+freeze: false
+dist_type: 'tx'
+layers: 2
+heads: 4
