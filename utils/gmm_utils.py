@@ -128,18 +128,19 @@ def plot_gmm_trajectory(means: np.ndarray,
                             facecolor=time_colors[t],
                             alpha=alpha,
                             edgecolor=component_colors[k],
-                            linewidth=1)
+                            linewidth=1,
+                            zorder=10)
             ax_traj.add_patch(ellipse)
             
             # Plot mean point
             ax_traj.plot(means[t, k, 0], means[t, k, 1], 'o',
-                        color=component_colors[k], markersize=4)
+                        color=component_colors[k], markersize=3, zorder=50)
     
     # Configure trajectory plot
     ax_traj.set_aspect('equal')
-    ax_traj.grid(True, alpha=0.3)
-    ax_traj.set_xlabel('x')
-    ax_traj.set_ylabel('y')
+    ax_traj.grid(True, alpha=0.3, zorder=1)
+    # ax_traj.set_xlabel('x')
+    # ax_traj.set_ylabel('y')
     ax_traj.set_xlim(-1, 5)
     ax_traj.set_ylim(-1, 5)
     if title:
@@ -152,7 +153,8 @@ def plot_gmm_trajectory(means: np.ndarray,
     
     # Create smaller inset axes for the weight simplex in the bottom left corner
     # with white background and black outline
-    ax_inset = fig.add_axes([0.16, 0.1, 0.23, 0.17], facecolor='white')
+    # ax_inset = fig.add_axes([0.16, 0.1, 0.23, 0.17], facecolor='white')
+    ax_inset = fig.add_axes([0.15, 0.1, 0.3, 0.25], facecolor='white')
     ax_inset.spines['top'].set_color('black')
     ax_inset.spines['right'].set_color('black')
     ax_inset.spines['bottom'].set_color('black')
@@ -196,11 +198,14 @@ def plot_weight_simplex_inset(weights: np.ndarray,
         # Convert to barycentric coordinates
         triangle = np.array([[0, 0], [1, 0], [0.5, np.sqrt(0.75)]])
         barycentric = weights @ triangle
+
+        x, y = triangle.T
         
+        ax.fill(x, y, color='lightgrey', alpha=0.5)
         # Draw the simplex triangle
-        ax.plot([0, 1], [0, 0], 'k-', alpha=0.3, linewidth=1)
-        ax.plot([0, 0.5], [0, np.sqrt(0.75)], 'k-', alpha=0.3, linewidth=1)
-        ax.plot([1, 0.5], [0, np.sqrt(0.75)], 'k-', alpha=0.3, linewidth=1)
+        ax.plot([0, 1], [0, 0], 'k-', alpha=0.7, linewidth=1)
+        ax.plot([0, 0.5], [0, np.sqrt(0.75)], 'k-', alpha=0.7, linewidth=1)
+        ax.plot([1, 0.5], [0, np.sqrt(0.75)], 'k-', alpha=0.7, linewidth=1)
         
         # Add grid lines inside the simplex
         n_lines = 4  # reduced number of grid lines
@@ -211,17 +216,17 @@ def plot_weight_simplex_inset(weights: np.ndarray,
             # Lines parallel to bottom edge
             start = np.array([0, 0]) * (1-t) + np.array([0.5, np.sqrt(0.75)]) * t
             end = np.array([1, 0]) * (1-t) + np.array([0.5, np.sqrt(0.75)]) * t
-            ax.plot([start[0], end[0]], [start[1], end[1]], 'gray', alpha=0.2, linewidth=0.5)
+            ax.plot([start[0], end[0]], [start[1], end[1]], 'k', alpha=0.3, linewidth=0.3)
             
             # Lines parallel to left edge
             start = np.array([0, 0]) * (1-t) + np.array([1, 0]) * t
             end = np.array([0.5, np.sqrt(0.75)]) - (np.array([0.5, np.sqrt(0.75)]) - np.array([0, 0])) * (1-t)
-            ax.plot([start[0], end[0]], [start[1], end[1]], 'gray', alpha=0.2, linewidth=0.5)
+            ax.plot([start[0], end[0]], [start[1], end[1]], 'k', alpha=0.3, linewidth=0.3)
             
             # Lines parallel to right edge
             start = np.array([1, 0]) * (1-t) + np.array([0.5, np.sqrt(0.75)]) * t
             end = np.array([0, 0]) + (np.array([1, 0]) - np.array([0, 0])) * (1-t)
-            ax.plot([start[0], end[0]], [start[1], end[1]], 'gray', alpha=0.2, linewidth=0.5)
+            ax.plot([start[0], end[0]], [start[1], end[1]], 'k', alpha=0.3, linewidth=0.3)
         
         # Plot trajectory with gradient color
         points = barycentric.reshape(-1, 1, 2)
@@ -234,11 +239,11 @@ def plot_weight_simplex_inset(weights: np.ndarray,
                    color=time_colors[i], linewidth=1.5, alpha=0.7)
         
         # Plot points with white edge for better visibility
-        for t in range(num_timesteps):
+        for t in range(0, num_timesteps, 2):
             color = plt.cm.viridis(t / (num_timesteps-1))
             ax.plot(barycentric[t, 0], barycentric[t, 1], 'o',
                    color=color, markersize=4,
-                   markeredgecolor='white', markeredgewidth=0.5)
+                   markeredgecolor='white', markeredgewidth=0)
         
         # Add small dots at vertices with component colors (smaller than before)
         vertex_size = 40
