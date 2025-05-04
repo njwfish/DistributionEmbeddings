@@ -15,7 +15,7 @@ latent_dim: 128
 hidden_dim: 256
 set_size: 100
 batch_size: 32
-lr: 1e-4
+lr: 2e-5
 weight_decay: 1e-5
 
 # DNA-specific model parameters (used by other configs via interpolation)

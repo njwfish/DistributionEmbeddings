@@ -133,18 +133,16 @@ class GPRADNADataset(Dataset):
         """Get a sample from the next higher quantile for the same condition."""
         condition_data = self.data_by_condition.get(condition, {})
         all_quantiles = sorted(condition_data.keys())
-        
-        try:
-            current_idx = all_quantiles.index(quantile)
-            if current_idx + 1 < len(all_quantiles):
-                next_quantile = all_quantiles[current_idx + 1]
-                items = condition_data[next_quantile]
-                if items:
-                    return random.choice(items), next_quantile
-        except (ValueError, IndexError):
-            pass
-        
-        return None, None
+
+        current_idx = all_quantiles.index(quantile)
+        if current_idx + 1 < len(all_quantiles):
+            next_quantile = all_quantiles[current_idx + 1]
+            items = condition_data[next_quantile]
+            if items:
+                return random.choice(items), next_quantile
+        else:
+            raise ValueError(f"No next quantile found for condition {condition} and quantile {quantile}, you are probably not holding out enough quantiles")
+
     
     def __len__(self):
         return len(self.valid_samples)
@@ -156,15 +154,24 @@ class GPRADNADataset(Dataset):
         
         # Always try to get next set from higher quantile
         next_item, next_quantile = self._get_next_set(condition, quantile)
-        
+                
+        # Fix the hyena input ids
+        toks = torch.flip(item["tokenized"]["hyena_input_ids"], [1])
+        sep_idx = (toks == 0)
+        cls_idx = (toks == 1)
+        toks[sep_idx] = 1
+        toks[cls_idx] = 0
+        item["tokenized"]["hyena_input_ids"] = toks
+        item["tokenized"]["hyena_attention_mask"] = torch.flip(item["tokenized"]["hyena_attention_mask"], [1])
+
         # Prepare result
         result = {
             'condition': condition,
             'center_quantile': quantile,
             'samples': {
                 'encoder_inputs': item["tokenized"]["encoder_inputs"],
-                'hyena_input_ids': torch.flip(item["tokenized"]["hyena_input_ids"], [1]),
-                'hyena_attention_mask': torch.flip(item["tokenized"]["hyena_attention_mask"], [1])
+                'hyena_input_ids': item["tokenized"]["hyena_input_ids"],
+                'hyena_attention_mask': item["tokenized"]["hyena_attention_mask"]
             },
             'raw_texts': item.get("sequences", []).tolist()
         }
@@ -172,9 +179,7 @@ class GPRADNADataset(Dataset):
         # Always include next set if available
         if next_item is not None:
             result['next_set_samples'] = {
-                'encoder_inputs': next_item["tokenized"]["encoder_inputs"],
-                'hyena_input_ids': torch.flip(next_item["tokenized"]["hyena_input_ids"], [1]),
-                'hyena_attention_mask': torch.flip(next_item["tokenized"]["hyena_attention_mask"], [1])
+                'encoder_inputs': next_item["tokenized"]["encoder_inputs"]
             }
             result['next_quantile'] = next_quantile
         

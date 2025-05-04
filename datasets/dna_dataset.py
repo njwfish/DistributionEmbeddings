@@ -173,31 +173,31 @@ class DNADataset(Dataset):
                 
                 # Get all sets from this sample
                 sample_indices = self.sample_to_indices[sample_id]
-                if not sample_indices:
-                    # Fallback to tissue-level sampling
-                    idx = random.choice(tissue_indices)
-                else:
-                    # Sample from this sample
-                    idx = random.choice(sample_indices)
+                idx = random.choice(sample_indices)
         else:
             # Tissue level: randomly select any set from this tissue
             tissue_indices = self.tissue_to_indices[tissue]
-            if not tissue_indices:
-                # Fallback to random sampling
-                idx = random.randint(0, len(self.data) - 1)
-            else:
-                idx = random.choice(tissue_indices)
+            idx = random.choice(tissue_indices)
         
         # Return the data at the selected index
         item = self.data[idx]
-        
+
+        # Fix the hyena input ids
+        toks = torch.flip(item["tokenized"]["hyena_input_ids"], [1])
+        sep_idx = (toks == 0)
+        cls_idx = (toks == 1)
+        toks[sep_idx] = 1
+        toks[cls_idx] = 0
+        item["tokenized"]["hyena_input_ids"] = toks
+        item["tokenized"]["hyena_attention_mask"] = torch.flip(item["tokenized"]["hyena_attention_mask"], [1])
+
         return {
             'tissue_type': item["tissue_type"],
             'sample_id': item["sample_id"],
             'samples': {
                 'encoder_inputs': item["tokenized"]["encoder_inputs"],
-                'hyena_input_ids': torch.flip(item["tokenized"]["hyena_input_ids"], [1]),
-                'hyena_attention_mask': torch.flip(item["tokenized"]["hyena_attention_mask"], [1])
+                'hyena_input_ids': item["tokenized"]["hyena_input_ids"],
+                'hyena_attention_mask': item["tokenized"]["hyena_attention_mask"]
             },
             'raw_texts': item["sequences"]
         } 

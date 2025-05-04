@@ -17,5 +17,5 @@ latent_dim: 64
 hidden_dim: 128
 set_size: 768
 batch_size: 8
-lr: 1e-4
+lr: 2e-5
 weight_decay: 1e-5 

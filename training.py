@@ -294,6 +294,7 @@ class Trainer:
                         'encoder_state_dict': encoder.state_dict(),
                         'generator_state_dict': generator.model.state_dict(),
                         'optimizer_state_dict': optimizer.state_dict(),
+                        'scheduler_state_dict': scheduler.state_dict(),
                         'loss': eval_loss,
                     }, best_model_path)
                     self.logger.info(f"New best model saved to {best_model_path}")
