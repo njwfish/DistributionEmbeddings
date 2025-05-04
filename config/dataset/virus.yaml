@@ -1,0 +1,11 @@
+# @package _global_.dataset
+_target_: datasets.virus.ViralDataset
+data_dir: "/orcd/data/omarabu/001/gokul/DistributionEmbeddings/data/spikeprot0430"
+set_size: 16
+max_length: ${experiment.max_length}
+esm_name: ${experiment.esm_model_name}
+progen_name: ${experiment.progen2_model_name}
+lines_to_read: 100000000
+max_sets_per_fam: 100
+tokenize: ${experiment.tokenize}
+seed: ${seed}

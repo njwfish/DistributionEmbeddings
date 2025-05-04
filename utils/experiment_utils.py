@@ -304,6 +304,27 @@ def load_best_model(experiment_dir: str):
     
     return torch.load(best_model_path, map_location=torch.device('cpu'), weights_only=False)
 
+def load_checkpoint(experiment_dir: str, epoch : int):
+    """
+    Load from particular checkpoint
+    
+    Args:
+        experiment_dir: The directory of the experiment
+        epoch: checkpoint epoch
+        
+    Returns:
+        The loaded model checkpoint
+    """
+    if not os.path.exists(experiment_dir):
+        raise ValueError(f"Experiment directory {experiment_dir} does not exist")
+    
+    checkpt_path = os.path.join(experiment_dir, "checkpoint_epoch_%d.pt" % epoch)
+    if not os.path.exists(checkpt_path):
+        raise ValueError(f"No best model found in {experiment_dir}")
+    
+    return torch.load(checkpt_path, map_location=torch.device('cpu'), weights_only=False)
+
+
 def compare_experiments(exp_dir1: str, exp_dir2: str) -> Dict[str, Any]:
     """
     Compare two experiments and return their differences.
