@@ -1,0 +1,24 @@
+# @package _global_.experiment
+
+# Experiment name and description
+name: gpra_dna_exp
+description: "GPRA DNA experiment with distribution embeddings using HyenaDNA"
+
+# Override defaults from config.yaml
+defaults:
+  - /dataset: gpra_dna
+  - /encoder: dna_conv_ordered
+  - /generator: hyenadna
+  - /training: long_epochs
+  - /loss: ordered
+# Experiment-specific parameters
+latent_dim: 128
+hidden_dim: 256
+set_size: 100
+batch_size: 32
+lr: 1e-4
+weight_decay: 1e-5
+
+# DNA-specific model parameters (used by other configs via interpolation)
+esm_model_name: null  # Not used for DNA
+progen2_model_name: null  # Not used for DNA 

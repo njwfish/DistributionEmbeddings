@@ -1,0 +1,4 @@
+# @package _global_.loss
+_target_: loss.ordered.OrderedLossManager
+next_latent_loss_weight: 0.1
+mask_context_prob: 0.0
