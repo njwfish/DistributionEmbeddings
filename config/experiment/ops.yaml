@@ -1,0 +1,20 @@
+# @package _global_.experiment
+
+# Experiment name and description
+name: ops
+description: "OPS experiment with distribution embeddings"
+
+# Override defaults from config.yaml
+defaults:
+  - /dataset: ops
+  - /encoder: conv_gnn
+  - /model: context_unet  # Use the context_unet model for DDPM
+  - /generator: ddpm  # Use the DDPM generator
+  - /scheduler: cosine
+
+# Experiment-specific parameters
+latent_dim: 128 
+hidden_dim: 256
+set_size: 64 
+batch_size: 2
+lr: 2e-4 
