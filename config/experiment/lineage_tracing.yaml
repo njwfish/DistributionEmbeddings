@@ -7,9 +7,8 @@ description: "clonal embeddings with GDE"
 # Override defaults from config.yaml
 defaults:
   - /dataset: lineage_tracing
-  - /encoder: gnn
-  - /model: vae_mlp
-  - /generator: cvae
+  - /encoder: wormhole_encoder
+  - /generator: wormhole
   - /optimizer: adam
   - /scheduler: cosine
   - /training: default

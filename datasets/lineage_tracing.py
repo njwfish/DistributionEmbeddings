@@ -51,7 +51,7 @@ def GetLTSeqData(root):
     # preprocessing
     sc.pp.normalize_total(with_clone, target_sum=1e4)
     sc.pp.log1p(with_clone)
-    sc.pp.highly_variable_genes(with_clone, n_top_genes=1000)
+    sc.pp.highly_variable_genes(with_clone, n_top_genes=10000)
     rna_feats = with_clone[:, with_clone.var.highly_variable]
     sc.pp.scale(rna_feats, max_value=10)
 
@@ -67,7 +67,7 @@ class LTSeqDataset(Dataset):
         min_cells: int = 3,
         # n_pcs: int = 50,
         root: str = './data',
-        data_shape: List[int] = [1000],
+        data_shape: List[int] = [10000],
         seed: Optional[int] = None
     ):
         if seed is not None:
