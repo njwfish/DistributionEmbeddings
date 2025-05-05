@@ -7,7 +7,6 @@ description: "Gaussian Mixture Model experiment with distribution embeddings"
 # Override defaults from config.yaml
 defaults:
   - /dataset: mvn
-  - /encoder: gnn
   - /model: direct_mlp
   - /generator: sinkhorn
   - /mixer: dirichlet_k
