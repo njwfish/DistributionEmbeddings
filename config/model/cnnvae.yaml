@@ -1,0 +1,7 @@
+# @package _global_.model
+_target_: model.cnnvae.CNNVAE
+in_channels: ${dataset.data_shape[0]}
+n_feat: 256
+latent_dim: ${experiment.latent_dim}
+vae_latent_dim: 100
+image_size: ${dataset.data_shape[1]} 

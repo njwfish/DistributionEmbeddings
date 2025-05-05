@@ -12,7 +12,7 @@ defaults:
   - /training: long_epochs
   - /loss: ordered
 # Experiment-specific parameters
-latent_dim: 128
+latent_dim: 64
 hidden_dim: 256
 set_size: 100
 batch_size: 24

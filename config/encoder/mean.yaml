@@ -1,0 +1,5 @@
+# @package _global_.encoder
+_target_: encoder.mean.MeanEncoder
+d: ${experiment.latent_dim}
+seed: ${seed}
+data_shape: ${dataset.data_shape}

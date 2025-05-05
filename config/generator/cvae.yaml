@@ -2,7 +2,7 @@
 _target_: generator.cvae.CVAE
 model: ${model}
 latent_dim: ${experiment.latent_dim}
-noise_shape: ${experiment.noise_dim}
+noise_shape: ${experiment.latent_dim}
 beta: 1.0
 kl_anneal_steps: 0
 kl_anneal_start: 0.0 

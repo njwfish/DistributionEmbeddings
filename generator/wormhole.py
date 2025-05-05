@@ -23,11 +23,12 @@ class DistributionDecoderTx(nn.Module):
 
 class WormholeGenerator(nn.Module):
     def __init__(self, latent_dim, data_shape, hidden_dim, 
-                 set_size, layers=1, heads=4, scaling=0.9):
+                 set_size, layers=1, heads=4, scaling=0.9, max_pairwise_dist=10):
         super().__init__()
         out_dim = np.prod(data_shape)
         self.model = DistributionDecoderTx(latent_dim, out_dim, hidden_dim, set_size, layers, heads)
         self.sinkhorn = SamplesLoss("sinkhorn", p=2, scaling=scaling)
+        self.max_pairwise_dist = max_pairwise_dist
 
     def forward(self, latent):
         return self.model(latent)
@@ -45,8 +46,14 @@ class WormholeGenerator(nn.Module):
         # rec_scaled = 2 * (rec - rec_min) / (rec_max - rec_min) - 1
         
         rec_loss = self.sinkhorn(rec, x)
-        input_w2 = pairwise_sinkhorn(x, self.sinkhorn)
-        latent_d = torch.cdist(latent, latent)
+
+        # select a random subset of the input
+        subset_size = min(self.max_pairwise_dist, x.shape[0])
+        subset_idx = torch.randperm(x.shape[0])[:subset_size]
+        subset_x = x[subset_idx]
+        subset_latent = latent[subset_idx]
+        input_w2 = pairwise_sinkhorn(subset_x, self.sinkhorn)
+        latent_d = torch.cdist(subset_latent, subset_latent)
 
         return rec_loss.mean() + ((input_w2 - latent_d)**2).mean()/2
     

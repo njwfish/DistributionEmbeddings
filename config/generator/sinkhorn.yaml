@@ -2,7 +2,7 @@
 _target_: generator.direct.DirectGenerator
 model: ${model}  # This will be instantiated first
 loss_type: sinkhorn
-noise_dim: ${experiment.noise_dim} 
+noise_dim: ${experiment.latent_dim} 
 loss_params:
   reg: 0.1
   p: 2

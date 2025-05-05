@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
-from generator.losses import sliced_wasserstein_distance, mmd, sinkhorn
+from generator.losses import sliced_wasserstein_distance, mmd
+from geomloss import SamplesLoss
 
 class DirectGenerator(nn.Module):
     def __init__(self, model, loss_type='swd', loss_params=None, noise_dim=100):
@@ -14,9 +15,11 @@ class DirectGenerator(nn.Module):
             if self.loss_type == 'swd':
                 return torch.vmap(sliced_wasserstein_distance, randomness='different')(x, y, **self.loss_params).mean()
             elif self.loss_type == 'mmd':
-                return torch.vmap(mmd, randomness='different')(x, y, **self.loss_params).mean()
+                return torch.vmap(mmd, randomness='different')(x, y).mean()
             elif self.loss_type == 'sinkhorn':
-                return torch.vmap(sinkhorn, randomness='different')(x, y, **self.loss_params).mean()
+                # return torch.vmap(sinkhorn, randomness='different')(x, y, **self.loss_params).mean()
+                sinkhorn = SamplesLoss("sinkhorn", p=2, scaling=0.9)
+                return sinkhorn(x, y)
             
         self.loss_fn = loss_fn
 

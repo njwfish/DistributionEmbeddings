@@ -1,2 +1,9 @@
 _target_: wandb_utils.setup_wandb
 mode: "disabled" 
+project: "distribution-embeddings"
+entity: null  # Change to your team name if needed
+name: null  # Will be auto-generated from config if null
+tags: []
+notes: null
+group: null
+save_code: true 

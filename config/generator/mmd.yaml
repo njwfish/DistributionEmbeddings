@@ -1,8 +1,5 @@
 # @package _global_.generator
 _target_: generator.direct.DirectGenerator
 model: ${model}  # This will be instantiated first
-loss_type: swd
-loss_params:
-  n_projections: 100
-  p: 2
+loss_type: mmd
 noise_dim: ${experiment.latent_dim} 

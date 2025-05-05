@@ -11,7 +11,7 @@ defaults:
   - /generator: hyenadna
   - /training: long_epochs
 # Experiment-specific parameters
-latent_dim: 128
+latent_dim: 64
 hidden_dim: 256
 set_size: 100
 batch_size: 32
