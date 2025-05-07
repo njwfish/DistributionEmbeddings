@@ -1,0 +1,25 @@
+# @package _global_.experiment
+
+# Experiment name and description
+name: lineage
+description: "clonal embeddings with GDE"
+
+# Override defaults from config.yaml
+defaults:
+  - /dataset: lineage_tracing
+  - /encoder: wormhole_encoder
+  - /generator: wormhole
+  - /optimizer: adam
+  - /scheduler: cosine
+  - /training: default
+  - /mixer: none
+  - /wandb: default
+
+# Experiment-specific parameters
+latent_dim: 64
+layers: 2
+hidden_dim: 128
+noise_dim: 32
+set_size: 100
+batch_size: 16
+lr: 2e-4 
