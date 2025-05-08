@@ -95,7 +95,7 @@ class OPSDataset(Dataset):
             spatial_kernel_width: float = 10,
             replace: bool = True,
             seed: int = 42,
-            data_dir: str = "/orcd/data/omarabu/001/njwfish/DistributionEmbeddings/data/ops",
+            data_dir: str = "/orcd/scratch/bcs/001/njwfish/data/ops", # "/orcd/data/omarabu/001/njwfish/DistributionEmbeddings/data/ops",
             pert_repr: str = 'genept',
             pert_embedding_dim: int = 16,
             data_shape: list[int] = [2, 104, 104],
