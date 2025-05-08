@@ -309,7 +309,9 @@ class LowRankMultivariateNormalDistributionDataset(MultivariateNormalDistributio
             n_sets, set_size, [rank], prior_mu, prior_cov_df, prior_cov_scale, seed
         )
         self.rank = rank
+        np.random.seed(seed)
         self.projection_matrix = np.random.randn(rank, data_shape[0])
+        print(self.projection_matrix)
 
     def __getitem__(self, idx):
         return {
