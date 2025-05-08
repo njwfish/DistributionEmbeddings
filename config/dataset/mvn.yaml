@@ -1,9 +1,10 @@
 # @package _global_.dataset
-_target_: datasets.distribution_datasets.MultivariateNormalDistributionDataset
+_target_: datasets.distribution_datasets.LowRankMultivariateNormalDistributionDataset
 n_sets: 50000
 set_size: ${experiment.set_size}
-data_shape: [2]
+data_shape: [1000]
 seed: ${seed} 
 prior_mu: [0, 5]
 prior_cov_df: 10
 prior_cov_scale: 1
+rank: 2

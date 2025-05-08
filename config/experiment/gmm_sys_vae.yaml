@@ -15,7 +15,7 @@ defaults:
 # Experiment-specific parameters
 latent_dim: 32
 hidden_dim: 128
-set_size: 300
+set_size: 64
 batch_size: 256
 n_mix: 3
 lr: 2e-4 

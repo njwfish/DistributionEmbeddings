@@ -290,6 +290,36 @@ class MultivariateNormalDistributionDataset(Dataset):
             'mean': torch.tensor(self.mu[idx], dtype=torch.float),
             'cov': torch.tensor(self.cov[idx], dtype=torch.float)
         }
+    
+class LowRankMultivariateNormalDistributionDataset(MultivariateNormalDistributionDataset):
+    """Dataset for low-rank multivariate normal distributions."""
+    
+    def __init__(
+        self,
+        n_sets: int = 10_000, 
+        set_size: int = 100, 
+        data_shape: Tuple[int, ...] = (1_000,),  
+        rank: int = 2,   
+        prior_mu: Tuple[float, float] = (0, 1),
+        prior_cov_df: int = 10,
+        prior_cov_scale: float = 1.,
+        seed: Optional[int] = None,
+    ):
+        super().__init__(
+            n_sets, set_size, [rank], prior_mu, prior_cov_df, prior_cov_scale, seed
+        )
+        self.rank = rank
+        self.projection_matrix = np.random.randn(rank, data_shape[0])
+
+    def __getitem__(self, idx):
+        return {
+            'samples': torch.tensor(self.data[idx] @ self.projection_matrix, dtype=torch.float),
+            'mean': torch.tensor(self.mu[idx], dtype=torch.float),
+            'cov': torch.tensor(self.cov[idx], dtype=torch.float),
+            'projection_matrix': torch.tensor(self.projection_matrix, dtype=torch.float)
+        }
+
+        
 
 class GaussianMixtureModelDataset(Dataset):
     """Dataset for Gaussian Mixture Models."""
