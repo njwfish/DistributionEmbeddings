@@ -64,7 +64,7 @@ def fit_gmm_batch(samples: np.ndarray,
         means[mix_idx] = gmm.means_
         covs[mix_idx] = gmm.covariances_
         weights[mix_idx] = gmm.weights_
-        print("Fit GMM for mixture", mix_idx)
+        # print("Fit GMM for mixture", mix_idx)
     
     return means, covs, weights 
 
