@@ -1,5 +1,4 @@
 # @package _global_.loss
-_target_: loss.perturbseq.PerturbSeqLossManager
-mean_loss_weight: ${experiment.mean_loss_weight}
+_target_: loss.perturbspatial.PerturbSpatialLossManager
 pert_pred_loss_weight: ${experiment.pert_pred_loss_weight}
 mask_context_prob: 0.0

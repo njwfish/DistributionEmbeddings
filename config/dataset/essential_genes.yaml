@@ -5,7 +5,7 @@ pert_embedding_path: /orcd/data/omarabu/001/Omnicell_datasets/essential_gene_kno
 control_pert: non-targeting
 pert_key: gene
 cell_key: cell_type
-split_mode: ood
+split_mode: iid
 pca_components: ${experiment.pert_embedding_dim}
 # Seed for reproducibility
 seed: 42
@@ -36,6 +36,4 @@ heldout_perts:
   - RPS15A
   - SF3A2
 heldout_cell_types: 
-  - jurkat
-  - hepg2
-  - rpe1
+  - k562

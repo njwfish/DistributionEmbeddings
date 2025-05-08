@@ -7,15 +7,19 @@ description: "OPS experiment with distribution embeddings"
 # Override defaults from config.yaml
 defaults:
   - /dataset: ops
-  - /encoder: conv_gnn
+  - /encoder: conv_gnn_pert_pred
   - /model: context_unet  # Use the context_unet model for DDPM
   - /generator: ddpm  # Use the DDPM generator
   - /scheduler: cosine
+  - /loss: perturbspatial
 
 # Experiment-specific parameters
 latent_dim: 128 
 hidden_dim: 256
 set_size: 64 
 batch_size: 2
+spatial_prob: 0.0
 lr: 2e-4 
-spatial_prob: 0.5
+pert_embedding_dim: 16
+mean_loss_weight: 0.0
+pert_pred_loss_weight: 0.5

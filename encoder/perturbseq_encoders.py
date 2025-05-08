@@ -136,7 +136,7 @@ class DistributionEncoderResNetPertPredictor(DistributionEncoderResNet):
     def __init__(self, in_dim, latent_dim, hidden_dim, set_size, layers=2, fc_layers=2, norm=True, pert_embedding_dim=128):
         super().__init__(in_dim, latent_dim, hidden_dim, set_size, layers, fc_layers, norm)
         
-        self.pert_predictor = FullyInteractedPolynomialPertPredictor(latent_dim, pert_embedding_dim)
+        self.pert_predictor = FullyInteractedLinearPertPredictor(latent_dim, pert_embedding_dim)
         self.mean_predictor = nn.Linear(latent_dim, in_dim)
         
 
@@ -144,7 +144,7 @@ class DistributionEncoderResNetTxPertPredictor(DistributionEncoderResNetTx):
     def __init__(self, in_dim, latent_dim, hidden_dim, set_size, layers=2, fc_layers=2, heads=4, norm=True, pert_embedding_dim=128):
         super().__init__(in_dim, latent_dim, hidden_dim, set_size, layers, fc_layers, heads, norm)
         
-        self.pert_predictor = FullyInteractedPolynomialPertPredictor(latent_dim, pert_embedding_dim)
+        self.pert_predictor = FullyInteractedLinearPertPredictor(latent_dim, pert_embedding_dim)
         self.mean_predictor = nn.Linear(latent_dim, in_dim)
         
         

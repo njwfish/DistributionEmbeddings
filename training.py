@@ -17,11 +17,12 @@ class Trainer:
         log_interval=10,
         save_interval=20,
         eval_interval=5,
-        within_epoch_save_interval=10_000,
+        sub_epoch_interval=1_000,
         early_stopping=True,
         patience=10,
         use_tqdm=True,
-        mask_context_prob=0.0
+        mask_context_prob=0.0,
+        sub_epoch=None
     ):
         """
         Initialize the trainer.
@@ -39,7 +40,11 @@ class Trainer:
         self.log_interval = log_interval
         self.save_interval = save_interval
         self.eval_interval = eval_interval
-        self.within_epoch_save_interval = within_epoch_save_interval
+        self.sub_epoch_interval = sub_epoch_interval
+        if sub_epoch is None:
+            self.sub_epoch = save_interval == 1
+        else:
+            self.sub_epoch = sub_epoch
         self.early_stopping = early_stopping
         self.patience = patience
         self.use_tqdm = use_tqdm
@@ -99,18 +104,25 @@ class Trainer:
                         start_epoch = epoch_num
                 except (ValueError, IndexError):
                     continue
+        if start_epoch == 0 and best_model_path is not None and os.path.exists(best_model_path):
+            last_checkpoint = best_model_path
         
         # Resume from checkpoint if found
+        step = 0
         if last_checkpoint is not None and os.path.exists(last_checkpoint):
             self.logger.info(f"Resuming from checkpoint: {last_checkpoint}")
             checkpoint = torch.load(last_checkpoint, weights_only=False)
             encoder.load_state_dict(checkpoint['encoder_state_dict'])
             generator.model.load_state_dict(checkpoint['generator_state_dict'])
-            optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            if 'optimizer_state_dict' in checkpoint:
+                optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
             if 'scheduler_state_dict' in checkpoint:
                 scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
             start_epoch = checkpoint['epoch']
-            
+            if 'step' in checkpoint:
+                step = checkpoint['step']
+            else:
+                step = (start_epoch - 1) * len(dataloader)
             # Log resuming to W&B
             if wandb.run is not None:
                 wandb.run.summary["resumed_from_epoch"] = start_epoch
@@ -153,30 +165,38 @@ class Trainer:
                     
                     # Log batch metrics to W&B
                     if wandb.run is not None:
-                        step = epoch * len(dataloader) + batch_idx
                         wandb.log({
                             "batch/loss": loss.item(),
                             "batch/step": step,
                             "batch/epoch": epoch + 1,
                         } | {f'batch/{k}': v for k, v in losses.items()}, step=step)
 
-                if (batch_idx % self.within_epoch_save_interval == 0) and (batch_idx > 0):
-                    checkpoint_path = os.path.join(output_dir, f"checkpoint_epoch_{epoch+1}.pt")
-                    torch.save({
-                        'epoch': epoch + 1,
-                        'encoder_state_dict': encoder.state_dict(),
-                        'generator_state_dict': generator.model.state_dict(),
-                        'optimizer_state_dict': optimizer.state_dict(),
-                        'scheduler_state_dict': scheduler.state_dict(),
-                    }, checkpoint_path)
-                    self.logger.info(f"Saved checkpoint to {checkpoint_path}")                
+                if self.sub_epoch and (step % self.sub_epoch_interval == 0) and (batch_idx > 0):
+                    sub_epoch = step // self.sub_epoch_interval
+                    if scheduler is not None:
+                        scheduler.step()
+                        current_lr = scheduler.get_last_lr()[0]
+                        self.logger.info(f"Learning rate: {current_lr:.6f}")
+                    if (sub_epoch + 1) % self.save_interval == 0:
+                        checkpoint_path = os.path.join(output_dir, f"checkpoint_epoch_{epoch+1}.pt")
+                        torch.save({
+                            'epoch': epoch + 1,
+                            'encoder_state_dict': encoder.state_dict(),
+                            'generator_state_dict': generator.model.state_dict(),
+                            'optimizer_state_dict': optimizer.state_dict(),
+                            'scheduler_state_dict': scheduler.state_dict(),
+                            'step': step,
+                        }, checkpoint_path)
+                        self.logger.info(f"Saved checkpoint to {checkpoint_path}")      
+
+                step += 1
             
             # Calculate average loss for this epoch
             avg_epoch_loss = sum(epoch_losses) / len(epoch_losses)
             stats['train_losses'].append(avg_epoch_loss)
             
             # Step the scheduler if provided
-            if scheduler is not None:
+            if scheduler is not None and not self.sub_epoch:
                 scheduler.step()
                 current_lr = scheduler.get_last_lr()[0]
                 self.logger.info(f"Learning rate: {current_lr:.6f}")
@@ -194,7 +214,7 @@ class Trainer:
                 if scheduler is not None:
                     wandb_log["epoch/learning_rate"] = scheduler.get_last_lr()[0]
                 
-                wandb.log(wandb_log, step=(epoch + 1) * len(dataloader))
+                wandb.log(wandb_log, step=step)
             
             # Save model checkpoint at regular intervals
             if (epoch + 1) % self.save_interval == 0:
@@ -206,6 +226,7 @@ class Trainer:
                     'optimizer_state_dict': optimizer.state_dict(),
                     'scheduler_state_dict': scheduler.state_dict(),
                     'loss': avg_epoch_loss,
+                    'step': step,
                 }, checkpoint_path)
                 self.logger.info(f"Saved checkpoint to {checkpoint_path}")
                 
@@ -225,7 +246,7 @@ class Trainer:
                     wandb.log({
                         "epoch/eval_loss": eval_loss,
                         "epoch/epoch": epoch + 1,
-                    }, step=(epoch + 1) * len(dataloader))
+                    }, step=step)
 
                 # Generate some samples with the trained model
                 samples = self.generate_samples(encoder, generator, dataloader)
@@ -244,7 +265,7 @@ class Trainer:
                             visualize_text_data(
                                 text_output_dir,
                                 samples['original_texts'],
-                                samples['generated_texts']
+                                samples['generated_texts'],
                             )
 
                             # Create a dataframe with original and generated texts, first need to flatten into sets
@@ -269,7 +290,7 @@ class Trainer:
                             # Log a single table with both original and generated texts
                             wandb.log({
                                 "epoch/text_samples": wandb.Table(dataframe=df)
-                            }, step=(epoch + 1) * len(dataloader))
+                            }, step=step)
                             
                         elif 'original' in samples and 'generated' in samples and hasattr(samples['original'], 'shape'):
                             # For numerical or image data, use the original visualization
@@ -296,6 +317,7 @@ class Trainer:
                         'optimizer_state_dict': optimizer.state_dict(),
                         'scheduler_state_dict': scheduler.state_dict(),
                         'loss': eval_loss,
+                        'step': step,
                     }, best_model_path)
                     self.logger.info(f"New best model saved to {best_model_path}")
                     

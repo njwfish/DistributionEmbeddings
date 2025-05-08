@@ -233,6 +233,7 @@ class MultivariateNormalDistributionDataset(Dataset):
             data_shape: Shape of each sample
             seed: Random seed for reproducibility
         """
+        prior_cov_df = prior_cov_df * (data_shape[0] - 1)
         self.n_sets = n_sets
         
         if seed is not None:

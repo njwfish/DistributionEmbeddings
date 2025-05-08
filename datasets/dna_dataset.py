@@ -18,7 +18,7 @@ class DNADataset(Dataset):
     def __init__(
         self,
         processed_data_dir: str = "/orcd/scratch/bcs/001/njwfish/data/processed_dna/",
-        p_sample_level: float = 0.7,  # Probability of sampling within the same sample
+        p_sample_level: float = 0.0,  # Probability of sampling within the same sample
         eval_ratio: float = 0.3,      # Portion of samples to hold out for evaluation
         seed: Optional[int] = 42,
         split: str = "train",          # 'train' or 'eval'
@@ -146,7 +146,7 @@ class DNADataset(Dataset):
         When idx is None, samples using the hierarchical sampling strategy:
         1. Randomly select a tissue
         2. With probability p_sample_level, sample from the same sample
-           Otherwise, sample from the tissue level
+           Otherwise, sample from the tissue level by mixing tokenized data from different samples
         
         Args:
             idx: Index of the item to get, or None to perform hierarchical sampling
@@ -175,9 +175,84 @@ class DNADataset(Dataset):
                 sample_indices = self.sample_to_indices[sample_id]
                 idx = random.choice(sample_indices)
         else:
-            # Tissue level: randomly select any set from this tissue
+            # Tissue level: mix tokenized data from different samples
             tissue_indices = self.tissue_to_indices[tissue]
-            idx = random.choice(tissue_indices)
+            if not tissue_indices:
+                # Fallback to random sampling if no indices for this tissue
+                idx = random.randint(0, len(self.data) - 1)
+            else:
+                # Get all unique sample IDs for this tissue
+                sample_ids = list(set(self.data[i]["sample_id"] for i in tissue_indices))
+                
+                # Get a reference set to know the size and use as base
+                ref_idx = random.choice(tissue_indices)
+                ref_set = self.data[ref_idx]
+                
+                # Create a copy of the reference set
+                mixed_set = {
+                    "tissue_type": tissue,
+                    "sample_id": "tissue_level",
+                    "sequences": ref_set["sequences"].copy(),
+                    "tokenized": {
+                        "encoder_inputs": ref_set["tokenized"]["encoder_inputs"].clone(),
+                        "hyena_input_ids": ref_set["tokenized"]["hyena_input_ids"].clone(),
+                        "hyena_attention_mask": ref_set["tokenized"]["hyena_attention_mask"].clone()
+                    }
+                }
+                
+                # Determine how many samples to mix from (max 5 or 1/3 of total samples)
+                num_samples_to_mix = min(5, max(1, len(sample_ids)))
+                
+                # Randomly select samples to mix from (excluding the reference sample)
+                ref_sample_id = ref_set["sample_id"]
+                other_sample_ids = [s for s in sample_ids if s != ref_sample_id]
+                if other_sample_ids:
+                    samples_to_mix = np.random.choice(other_sample_ids, 
+                                                    size=min(num_samples_to_mix, len(other_sample_ids)), 
+                                                    replace=False)
+                    
+                    # For each selected sample, replace a random subset of tokenized data
+                    for sample_id in samples_to_mix:
+                        sample_indices = self.sample_to_indices[sample_id]
+                        if not sample_indices:
+                            continue
+                            
+                        # Get a random set from this sample
+                        set_idx = np.random.choice(sample_indices)
+                        set_data = self.data[set_idx]
+                        
+                        # Replace a random subset of tokenized data
+                        seq_len = mixed_set["tokenized"]["encoder_inputs"].shape[1]
+                        replace_indices = np.random.choice(
+                            seq_len, 
+                            size=seq_len // (num_samples_to_mix + 1), 
+                            replace=False
+                        )
+                        
+                        # Replace the tokenized data at selected indices
+                        mixed_set["tokenized"]["encoder_inputs"][:, replace_indices] = set_data["tokenized"]["encoder_inputs"][:, replace_indices]
+                        mixed_set["tokenized"]["hyena_input_ids"][:, replace_indices] = set_data["tokenized"]["hyena_input_ids"][:, replace_indices]
+                        mixed_set["tokenized"]["hyena_attention_mask"][:, replace_indices] = set_data["tokenized"]["hyena_attention_mask"][:, replace_indices]
+                
+                # Fix the hyena input ids
+                toks = torch.flip(mixed_set["tokenized"]["hyena_input_ids"], [1])
+                sep_idx = (toks == 0)
+                cls_idx = (toks == 1)
+                toks[sep_idx] = 1
+                toks[cls_idx] = 0
+                mixed_set["tokenized"]["hyena_input_ids"] = toks
+                mixed_set["tokenized"]["hyena_attention_mask"] = torch.flip(mixed_set["tokenized"]["hyena_attention_mask"], [1])
+                
+                return {
+                    'tissue_type': mixed_set["tissue_type"],
+                    'sample_id': mixed_set["sample_id"],
+                    'samples': {
+                        'encoder_inputs': mixed_set["tokenized"]["encoder_inputs"],
+                        'hyena_input_ids': mixed_set["tokenized"]["hyena_input_ids"],
+                        'hyena_attention_mask': mixed_set["tokenized"]["hyena_attention_mask"]
+                    },
+                    'raw_texts': mixed_set["sequences"]
+                }
         
         # Return the data at the selected index
         item = self.data[idx]

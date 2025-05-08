@@ -19,7 +19,7 @@ class DirectGenerator(nn.Module):
             elif self.loss_type == 'sinkhorn':
                 # return torch.vmap(sinkhorn, randomness='different')(x, y, **self.loss_params).mean()
                 sinkhorn = SamplesLoss("sinkhorn", p=2, scaling=0.9)
-                return sinkhorn(x, y)
+                return sinkhorn(x, y).mean()
             
         self.loss_fn = loss_fn
 
