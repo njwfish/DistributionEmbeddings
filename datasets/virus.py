@@ -21,8 +21,7 @@ class ViralDataset(Dataset):
                  max_length: int = 1200,
                  seed: Optional[int] = 212121,
                  tokenize: bool = False,
-                 lines_to_read: int = 10**8,
-                 max_sets_per_fam: int = 1):
+                 lines_to_read: int = 10**8):
         
         if seed is not None:
             random.seed(seed)
@@ -32,7 +31,6 @@ class ViralDataset(Dataset):
         self.data_dir = data_dir
         self.set_size = set_size
         self.max_length = max_length
-        self.max_sets_per_fam = max_sets_per_fam
         
         self.esm_tokenizer = AutoTokenizer.from_pretrained(esm_name, trust_remote_code=True)
         self.progen_tokenizer = AutoTokenizer.from_pretrained(progen_name, trust_remote_code=True)
@@ -68,7 +66,7 @@ class ViralDataset(Dataset):
                 virus_type, state = type_loc.split("^^") if "^^" in type_loc else (type_loc, "?")
 
                 if date[5:7] != '00' and date[-2:] != '00' and date[4] == '-':
-                    key = date[:7] + '-' + location  # yyyy-mm-location
+                    key = date[:7] + '-' + o_lab  # yyyy-mm-location
                     if len(seqs_by_monthloc[key]) < max_per_monthloc:
                         seqs_by_monthloc[key].append(str(record.seq))
             except:
