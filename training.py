@@ -4,11 +4,13 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 import os
 import time
+import shutil
 from tqdm import tqdm
 import logging
 import wandb
 from utils.hash_utils import get_output_dir, find_matching_output_dir
 from utils.visualization import visualize_data, visualize_text_data
+from omegaconf import OmegaConf, DictConfig
 
 class Trainer:
     def __init__(
@@ -53,7 +55,99 @@ class Trainer:
         self.logger = logging.getLogger(__name__)
         self.best_loss = float('inf')
         self.no_improve_count = 0
+        # log sub_epoch_interval
+        self.logger.info(f"Sub epoch interval: {self.sub_epoch_interval}, save interval: {self.save_interval}, eval interval: {self.eval_interval}")
+    
+    def _find_similar_experiment_by_name(self, experiment_name, current_config, base_dir):
+        """
+        Find experiments with the same name but different epoch counts.
         
+        Args:
+            experiment_name: Name of the experiment (without hash)
+            current_config: Current configuration
+            base_dir: Base output directory
+            
+        Returns:
+            List of tuples (directory, num_epochs) of matching experiments
+        """
+        matching_experiments = []
+        
+        # Extract current num_epochs from config
+        current_num_epochs = None
+        if isinstance(current_config, DictConfig):
+            config_dict = OmegaConf.to_container(current_config, resolve=True)
+        else:
+            config_dict = current_config.copy()
+        
+        current_num_epochs = config_dict['training']['num_epochs']
+
+        config_dict.pop('training')
+
+        # Look for directories with the same experiment name prefix
+        for item in os.listdir(base_dir):
+            if not os.path.isdir(os.path.join(base_dir, item)):
+                continue
+                
+            # Check if this directory has the same experiment name prefix
+            if item.startswith(f"{experiment_name}_"):
+                exp_dir = os.path.join(base_dir, item)
+                config_path = os.path.join(exp_dir, 'config.yaml')
+                
+                if not os.path.exists(config_path):
+                    continue
+                    
+                try:
+                    # Load the experiment config
+                    exp_config = OmegaConf.load(config_path)
+                    exp_config_dict = OmegaConf.to_container(exp_config, resolve=True)
+                    
+                    # Check if this experiment has a different num_epochs
+                    exp_num_epochs = exp_config_dict['training']['num_epochs']
+                    
+                    if exp_num_epochs != current_num_epochs:
+                        exp_config_dict.pop('training')
+                        
+                        # Compare the configs without epochs
+                        if self._configs_match(config_dict, exp_config_dict):
+                            self.logger.info(f"Found similar experiment: {item} with {exp_num_epochs} epochs")
+                            matching_experiments.append((exp_dir, exp_num_epochs))
+                except Exception as e:
+                    self.logger.warning(f"Error comparing config in {exp_dir}: {e}")
+        
+        return matching_experiments
+    
+    def _configs_match(self, config1, config2):
+        """Compare two configs for equality."""
+        if set(config1.keys()) != set(config2.keys()):
+            return False
+            
+        for key in config1.keys():
+            if config1[key] != config2[key]:
+                return False
+                    
+        return True
+    
+    def _find_latest_checkpoint(self, directory):
+        """Find the latest checkpoint in a directory."""
+        best_model_path = os.path.join(directory, "best_model.pt")
+        if os.path.exists(best_model_path):
+            return best_model_path
+            
+        latest_checkpoint = None
+        latest_epoch = -1
+        
+        for filename in os.listdir(directory):
+            if filename.startswith("checkpoint_epoch_"):
+                try:
+                    epoch_num = int(filename.split("_")[-1].split(".")[0])
+                    if epoch_num > latest_epoch:
+                        latest_epoch = epoch_num
+                        latest_checkpoint = os.path.join(directory, filename)
+                except (ValueError, IndexError):
+                    continue
+                    
+        return latest_checkpoint
+    
     def train(
         self,
         encoder,
@@ -106,6 +200,42 @@ class Trainer:
                     continue
         if start_epoch == 0 and best_model_path is not None and os.path.exists(best_model_path):
             last_checkpoint = best_model_path
+        
+        # If no checkpoint found and we have a config, try to find a similar experiment
+        if last_checkpoint is None and config is not None:
+            self.logger.info("No checkpoints found. Looking for similar experiments with different epoch counts...")
+            
+            # Get experiment name from directory
+            dir_name = os.path.basename(output_dir)
+            experiment_name = dir_name.split('_')[0]  # Assume format is "name_hash"
+            
+            # Find base directory (parent of output_dir)
+            base_dir = os.path.dirname(output_dir)
+            
+            # Find similar experiments with same name but different epoch counts
+            similar_experiments = self._find_similar_experiment_by_name(experiment_name, config, base_dir)
+            
+            print("similar_experiments", similar_experiments)
+            if similar_experiments:
+                # Sort by epoch count (descending) to prioritize those with more epochs
+                similar_experiments.sort(key=lambda x: x[1], reverse=True)
+                
+                for exp_dir, num_epochs in similar_experiments:
+                    self.logger.info(f"Checking for checkpoints in similar experiment with {num_epochs} epochs: {exp_dir}")
+                    
+                    # Find the latest checkpoint in this experiment
+                    checkpoint_path = self._find_latest_checkpoint(exp_dir)
+                    
+                    if checkpoint_path:
+                        # Copy the checkpoint to our current directory
+                        new_checkpoint_path = os.path.join(output_dir, os.path.basename(checkpoint_path))
+                        try:
+                            shutil.copy2(checkpoint_path, new_checkpoint_path)
+                            self.logger.info(f"Copied checkpoint from similar experiment: {checkpoint_path} -> {new_checkpoint_path}")
+                            last_checkpoint = new_checkpoint_path
+                            break
+                        except Exception as e:
+                            self.logger.error(f"Error copying checkpoint: {e}")
         
         # Resume from checkpoint if found
         step = 0
@@ -171,7 +301,7 @@ class Trainer:
                             "batch/epoch": epoch + 1,
                         } | {f'batch/{k}': v for k, v in losses.items()}, step=step)
 
-                if self.sub_epoch and (step % self.sub_epoch_interval == 0) and (batch_idx > 0):
+                if self.sub_epoch and (step % self.sub_epoch_interval == 0):
                     sub_epoch = step // self.sub_epoch_interval
                     if scheduler is not None:
                         scheduler.step()

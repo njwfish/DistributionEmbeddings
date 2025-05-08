@@ -527,7 +527,7 @@ def cleanup_dead_experiments(args):
         is_dead = not has_outputs
         
         # If it's dead and we're not keeping all experiments, add to removal list
-        if is_dead and not args.keep_all:
+        if is_dead:
             empty_exps.append((exp_name, exp_dir))
         else:
             preserved_count += 1

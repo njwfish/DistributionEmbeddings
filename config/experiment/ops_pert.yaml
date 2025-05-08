@@ -12,6 +12,7 @@ defaults:
   - /generator: ddpm  # Use the DDPM generator
   - /scheduler: cosine
   - /loss: perturbspatial
+  - /training: long_epochs
 
 # Experiment-specific parameters
 latent_dim: 128 

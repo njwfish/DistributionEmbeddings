@@ -14,6 +14,7 @@ def fit_gmm_batch(samples: np.ndarray,
                  init_covs: np.ndarray,
                  init_weights: np.ndarray,
                  n_iter: int = 100,
+                 use_kmeans_init: bool = False,
                  tol: float = 1e-6) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Fit multiple GMMs to batches of samples using sklearn's GaussianMixture.
@@ -45,23 +46,31 @@ def fit_gmm_batch(samples: np.ndarray,
         # double cast weights to normalize
         weights_init_double = init_weights[mix_idx].astype(np.float64)
         weights_init_double = weights_init_double / np.sum(weights_init_double)
-        gmm = GaussianMixture(
-            n_components=n_components,
-            max_iter=n_iter,
-            tol=tol,
-            covariance_type='full',
-            weights_init=weights_init_double,
-            means_init=init_means[mix_idx],
-            precisions_init=np.linalg.inv(init_covs[mix_idx]),
-            warm_start=True,
-            random_state=None
-        )
+        if not use_kmeans_init:
+            gmm = GaussianMixture(
+                n_components=n_components,
+                max_iter=n_iter,
+                tol=tol,
+                covariance_type='full',
+                weights_init=weights_init_double,
+                means_init=init_means[mix_idx],
+                precisions_init=np.linalg.inv(init_covs[mix_idx]),
+                warm_start=True,
+                random_state=None
+            )
+        else:
+            gmm = GaussianMixture(
+                n_components=n_components,
+                max_iter=n_iter,
+                tol=tol,
+                covariance_type='full',
+                random_state=None
+            )
         
         # Fit the model
         gmm.fit(samples[mix_idx])
         
         # Store results
-        means[mix_idx] = gmm.means_
         covs[mix_idx] = gmm.covariances_
         weights[mix_idx] = gmm.weights_
         # print("Fit GMM for mixture", mix_idx)
