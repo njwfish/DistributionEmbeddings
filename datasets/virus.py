@@ -66,7 +66,7 @@ class ViralDataset(Dataset):
                 virus_type, state = type_loc.split("^^") if "^^" in type_loc else (type_loc, "?")
 
                 if date[5:7] != '00' and date[-2:] != '00' and date[4] == '-':
-                    key = date[:7] + '-' + o_lab  # yyyy-mm-location
+                    key = date[:7] + '-' + o_lab +'-' + location  # yyyy-mm-lab-country
                     if len(seqs_by_monthloc[key]) < max_per_monthloc:
                         seqs_by_monthloc[key].append(str(record.seq))
             except:
