@@ -46,7 +46,7 @@ class FullyInteractedPolynomialPertPredictor(nn.Module):
         # Result: [batch_size, latent_dim, pert_embedding_dim]
         interaction = ctrl_latent_expanded * pert_embedding_expanded
         interaction = interaction.reshape(batch_size, -1)
-        # interaction = self.dropout(interaction)
+        interaction = self.dropout(interaction)
         
         # Sum over the pert_embedding dimension
         # Result: [batch_size, latent_dim]

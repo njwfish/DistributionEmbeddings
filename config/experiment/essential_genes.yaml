@@ -20,7 +20,7 @@ defaults:
 # Experiment-specific parameters
 latent_dim: 128
 layers: 4
-hidden_dim: 256
+hidden_dim: 1024
 noise_dim: 64
 set_size: 100
 batch_size: 96

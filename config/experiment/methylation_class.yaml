@@ -12,6 +12,7 @@ defaults:
   - /scheduler: cosine
   - /training: long_epochs
   - /loss: classification
+  - /mixer: dirichlet_k
 
 # Experiment-specific parameters
 latent_dim: 64
@@ -22,3 +23,5 @@ lr: 2e-5
 weight_decay: 1e-5 
 num_classes: 83
 classification_loss_weight: 1.0
+alpha: 1.0
+n_mix: 3

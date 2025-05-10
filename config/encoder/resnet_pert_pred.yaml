@@ -5,5 +5,5 @@ latent_dim: ${experiment.latent_dim}
 hidden_dim: ${experiment.hidden_dim}
 set_size: ${experiment.set_size}
 pert_embedding_dim: ${experiment.pert_embedding_dim}
-layers: 2
+layers: ${experiment.layers}
 fc_layers: 2 
