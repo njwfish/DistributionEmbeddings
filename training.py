@@ -250,9 +250,9 @@ class Trainer:
                 scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
             start_epoch = checkpoint['epoch']
             if 'step' in checkpoint:
-                step = checkpoint['step']
+                step = checkpoint['step'] + 1
             else:
-                step = (start_epoch - 1) * len(dataloader)
+                step = (start_epoch - 1) * len(dataloader) + 1
             # Log resuming to W&B
             if wandb.run is not None:
                 wandb.run.summary["resumed_from_epoch"] = start_epoch
@@ -301,7 +301,7 @@ class Trainer:
                             "batch/epoch": epoch + 1,
                         } | {f'batch/{k}': v for k, v in losses.items()}, step=step)
 
-                if self.sub_epoch and (step % self.sub_epoch_interval == 0):
+                if self.sub_epoch and (step % self.sub_epoch_interval == 0) and (step != 0):
                     sub_epoch = step // self.sub_epoch_interval
                     if scheduler is not None:
                         scheduler.step()

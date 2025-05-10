@@ -7,10 +7,11 @@ description: "DNA methylation experiment with distribution embeddings using Hyen
 # Override defaults from config.yaml
 defaults:
   - /dataset: methylation
-  - /encoder: dna_conv
+  - /encoder: dna_conv_classification
   - /generator: hyenadna
   - /scheduler: cosine
   - /training: long_epochs
+  - /loss: classification
 
 # Experiment-specific parameters
 latent_dim: 64
@@ -19,3 +20,5 @@ set_size: 768
 batch_size: 8
 lr: 2e-5
 weight_decay: 1e-5 
+num_classes: 83
+classification_loss_weight: 1.0

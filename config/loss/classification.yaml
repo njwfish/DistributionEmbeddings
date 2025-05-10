@@ -1,0 +1,4 @@
+# @package _global_.loss
+_target_: loss.classification.ClassificationLossManager
+classification_loss_weight: ${experiment.classification_loss_weight}
+mask_context_prob: 0.0

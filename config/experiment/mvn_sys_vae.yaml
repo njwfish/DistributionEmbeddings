@@ -1,0 +1,20 @@
+# @package _global_.experiment
+
+# Experiment name and description
+name: gmm_systematic_exp
+description: "Low rank multivariate normal experiment with distribution embeddings"
+
+# Override defaults from config.yaml
+defaults:
+  - /dataset: mvn
+  - /model: vae_mlp
+  - /generator: cvae
+  - /mixer: none
+  - /wandb: disabled
+
+# Experiment-specific parameters
+latent_dim: 32
+hidden_dim: 128
+set_size: 64
+batch_size: 256
+lr: 2e-4

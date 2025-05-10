@@ -7,7 +7,7 @@ description: "Essential genes analysis using distribution embeddings"
 # Override defaults from config.yaml
 defaults:
   - /dataset: essential_genes
-  - /encoder: conv_gnn_pert_pred
+  - /encoder: resnet_pert_pred
   - /model: vae_mlp
   - /generator: cvae
   - /optimizer: adam

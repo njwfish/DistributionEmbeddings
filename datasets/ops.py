@@ -109,6 +109,8 @@ class OPSDataset(Dataset):
         else:
             raise ValueError(f"Perturbation representation {pert_repr} not supported")
         
+        self.crop = (104 - data_shape[-1]) // 2
+        
         # compute pca for pert_embedding_dim
         self.pert_embedding_dim = pert_embedding_dim
         pert_embedding = np.vstack([self.pert_indices[k] for k in self.pert_indices.keys()])
@@ -170,6 +172,13 @@ class OPSDataset(Dataset):
         """Load just the images from a tile."""
         return np.load(f"{tile_path}/single_cell_images.npy")
     
+    def _load_image_idxs(self, tile_path, indices):
+        """Load only specific images from a tile using memory mapping."""
+        # Open the file with memmap to avoid loading everything into memory
+        mmap = np.load(f"{tile_path}/single_cell_images.npy", mmap_mode='r')
+        # Only load the requested indices
+        return mmap[indices]
+    
     def _load_dist_matrix(self, tile_path):
         """Load just the distance matrix from a tile."""
         return np.load(f"{tile_path}/dist_matrix.npy")
@@ -194,8 +203,8 @@ class OPSDataset(Dataset):
         )
         
         # Load only the selected images
-        images = self._load_images(self.tile_paths[tile_idx])
-        return cell_idx + tile_start, images[cell_idx]
+        images = self._load_image_idxs(self.tile_paths[tile_idx], cell_idx)
+        return cell_idx + tile_start, images
     
     def _sample_pert_across_tiles(self):
         # Sample a random perturbation
@@ -239,9 +248,8 @@ class OPSDataset(Dataset):
                 replace=self.replace
             )
             
-            # Load only the selected images from this tile
-            images = self._load_images(self.tile_paths[tile_idx])
-            selected_images.append(images[selected_local])
+            # Use memory mapping to load only the selected images from this tile
+            selected_images.append(self._load_image_idxs(self.tile_paths[tile_idx], selected_local))
             
             remaining -= n_from_this
             if remaining <= 0:
@@ -262,12 +270,22 @@ class OPSDataset(Dataset):
         sample_spatial = np.random.binomial(1, self.prob_spatial)
         if sample_spatial:
             idx, images = self._sample_spatial()
+            if self.crop > 0:
+                images = images[..., self.crop:-self.crop, self.crop:-self.crop]
+
+            images = images / 65535.0
+            images = images * 2.0 - 1.0
             return {
                 'samples': torch.tensor(images).float(),
             }
         else:
             # Use the new cross-tile sampling method instead
             _, pert_to_sample, images = self._sample_pert_across_tiles()
+            if self.crop > 0:
+                images = images[..., self.crop:-self.crop, self.crop:-self.crop] 
+
+            images = images / 65535.0
+            images = images * 2.0 - 1.0
             
             if self.prob_spatial > 0:
                 return {

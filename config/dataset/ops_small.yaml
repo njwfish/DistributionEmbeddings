@@ -1,0 +1,9 @@
+# @package _global_.dataset
+_target_: datasets.ops.OPSDataset
+set_size: ${experiment.set_size}
+seed: ${seed} 
+data_shape: [2, 64, 64]
+prob_spatial: ${experiment.spatial_prob}
+spatial_kernel_width: 10
+replace: true
+pert_embedding_dim: ${experiment.pert_embedding_dim}

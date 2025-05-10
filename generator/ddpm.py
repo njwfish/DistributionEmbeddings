@@ -104,11 +104,6 @@ class DDPM(nn.Module):
         return self.forward(x, c)
 
     def sample(self, context, num_samples, return_trajectory=False):
-        # we follow the guidance sampling scheme described in 'Classifier-Free Diffusion Guidance'
-        # to make the fwd passes efficient, we concat two versions of the dataset,
-        # one with context_mask=0 and the other context_mask=1
-        # we then mix the outputs with the guidance scale, w
-        # where w>0 means more guidance
         device = context.device
         n_sets = context.shape[0]
         context = context.unsqueeze(1).repeat(1, num_samples, 1).view(-1, context.shape[-1]) 

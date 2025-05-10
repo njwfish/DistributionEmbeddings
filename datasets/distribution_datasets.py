@@ -291,39 +291,92 @@ class MultivariateNormalDistributionDataset(Dataset):
             'cov': torch.tensor(self.cov[idx], dtype=torch.float)
         }
     
-class LowRankMultivariateNormalDistributionDataset(MultivariateNormalDistributionDataset):
-    """Dataset for low-rank multivariate normal distributions."""
-    
+class LowRankMultivariateNormalDistributionDataset(Dataset):
     def __init__(
         self,
-        n_sets: int = 10_000, 
-        set_size: int = 100, 
-        data_shape: Tuple[int, ...] = (1_000,),  
-        rank: int = 2,   
+        n_sets: int = 10_000,
+        set_size: int = 100,
+        data_shape: Tuple[int, ...] = (1000,),
+        rank: int = 5,
         prior_mu: Tuple[float, float] = (0, 1),
         prior_cov_df: int = 10,
         prior_cov_scale: float = 1.,
+        noise_scale: float = 0.1,
         seed: Optional[int] = None,
     ):
-        super().__init__(
-            n_sets, set_size, [rank], prior_mu, prior_cov_df, prior_cov_scale, seed
-        )
-        self.rank = rank
-        np.random.seed(seed)
-        self.projection_matrix = np.random.randn(rank, data_shape[0])
-        print(self.projection_matrix)
+        self.n_sets = n_sets
+        self.set_size = set_size
+        self.dim = data_shape[0]
+
+        if seed is not None:
+            np.random.seed(seed)
+
+        self.mu = np.random.uniform(prior_mu[0], prior_mu[1], (n_sets, self.dim))
+        self.cov = []
+        self.data = []
+
+        for i in range(n_sets):
+            # low-rank latent cov
+            latent_cov = sp.stats.wishart.rvs(df=prior_cov_df, scale=prior_cov_scale*np.eye(rank))
+            A = np.random.randn(self.dim, rank)
+            full_cov = A @ latent_cov @ A.T + noise_scale * np.eye(self.dim)
+
+            x = np.random.multivariate_normal(self.mu[i], full_cov, size=set_size)
+
+            self.cov.append(full_cov)
+            self.data.append(x)
+
+        self.cov = np.stack(self.cov)
+        self.data = np.stack(self.data)
+
+    def __len__(self):
+        return self.n_sets
 
     def __getitem__(self, idx):
         return {
-            'samples': torch.tensor(self.data[idx] @ self.projection_matrix, dtype=torch.float),
+            'samples': torch.tensor(self.data[idx], dtype=torch.float),
             'mean': torch.tensor(self.mu[idx], dtype=torch.float),
-            'cov': torch.tensor(self.cov[idx], dtype=torch.float),
-            'projection_matrix': torch.tensor(self.projection_matrix, dtype=torch.float)
+            'cov': torch.tensor(self.cov[idx], dtype=torch.float)
         }
+    
+    def sample(self, mu, cov, n_sets, set_size, data_shape):
+        """
+        Vectorized sampling with high-dimensional noise but low-rank covariance.
+        
+        Args:
+            mu: Mean vectors in low-rank space (n_sets, rank)
+            cov: Covariance matrices in low-rank space (n_sets, rank, rank)
+            n_sets: Number of sets to sample from
+            set_size: Number of samples per set
+            data_shape: Shape of each sample (high-dimensional)
+        """
+        # Generate high-dimensional standard normal noise
+        z = np.random.randn(20, set_size, data_shape[0])
+        
+        # Compute Cholesky decomposition in low-rank space
+        L_cov = np.linalg.cholesky(cov)  # shape: (n_sets, rank, rank)
+        
+        # Project the Cholesky factor to high-dimensional space
+        # projection_matrix shape: (rank, high_dim)
+        # L_cov_high_dim will be shape: (n_sets, rank, high_dim)
+        L_cov_high_dim = np.matmul(L_cov, self.projection_matrix)
+        
+        # Project the mean to high-dimensional space
+        # mu_high_dim will be shape: (n_sets, high_dim)
+        mu_high_dim = np.matmul(mu, self.projection_matrix)
+        
+        # Apply the projected Cholesky factor to the noise
+        # We need to reshape z for proper matrix multiplication
+        # result shape: (n_sets, set_size, high_dim)
+        z = np.matmul(z, L_cov_high_dim.transpose(0, 2, 1))
+        
+        # Add the projected mean
+        z = z + mu_high_dim[:, None, :]
+        
+        return z
 
         
-
-class GaussianMixtureModelDataset(Dataset):
+class GaussianMixtureModelDistributionDataset(Dataset):
     """Dataset for Gaussian Mixture Models."""
     
     def __init__(

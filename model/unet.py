@@ -158,6 +158,6 @@ class ContextUnet(nn.Module):
         up1 = self.up0(hiddenvec)
         # up2 = self.up1(up1, down2) # if want to avoid add and multiply embeddings
         up2 = self.up1(cemb1 * up1 + temb1, down2)  # add and multiply embeddings
-        up3 = self.up2(cemb2*up2+ temb2, down1)
+        up3 = self.up2(cemb2 * up2 + temb2, down1)
         out = self.out(torch.cat((up3, x), 1))
         return out

@@ -23,7 +23,8 @@ class DNADataset(Dataset):
         seed: Optional[int] = 42,
         split: str = "train",          # 'train' or 'eval'
         max_seq_length: int = 128, 
-        max_sets_per_sample: int = 20_000
+        max_sets_per_sample: int = 20_000,
+        num_classes: int = 83
     ):
         """
         Initialize the DNA dataset.
@@ -49,6 +50,9 @@ class DNADataset(Dataset):
         
         # Load data (this will handle the train/eval split)
         self._load_data()
+
+        self.tissue_types_oh = torch.eye(num_classes)
+        self.tissue_types_oh = {tissue_type: self.tissue_types_oh[i] for i, tissue_type in enumerate(self.tissue_types)}
     
     def _load_data(self):
         """Load DNA data and create train/eval split during loading."""
@@ -251,7 +255,8 @@ class DNADataset(Dataset):
                         'hyena_input_ids': mixed_set["tokenized"]["hyena_input_ids"],
                         'hyena_attention_mask': mixed_set["tokenized"]["hyena_attention_mask"]
                     },
-                    'raw_texts': mixed_set["sequences"]
+                    'raw_texts': mixed_set["sequences"],
+                    'classes': self.tissue_types_oh[mixed_set["tissue_type"]].repeat(toks.shape[0], 1)
                 }
         
         # Return the data at the selected index
@@ -274,5 +279,6 @@ class DNADataset(Dataset):
                 'hyena_input_ids': item["tokenized"]["hyena_input_ids"],
                 'hyena_attention_mask': item["tokenized"]["hyena_attention_mask"]
             },
-            'raw_texts': item["sequences"]
+            'raw_texts': item["sequences"],
+            'classes': self.tissue_types_oh[item["tissue_type"]].repeat(toks.shape[0], 1)
         } 
