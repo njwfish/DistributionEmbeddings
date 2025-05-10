@@ -14,7 +14,7 @@ defaults:
 # Experiment-specific parameters
 latent_dim: 128
 hidden_dim: 256
-batch_size: 2
+batch_size: 1
 lr: 2e-5
 
 # ESM model settings
