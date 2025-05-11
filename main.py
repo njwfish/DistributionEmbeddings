@@ -49,7 +49,7 @@ def main(cfg: DictConfig):
         mixer = hydra.utils.instantiate(cfg.mixer)
 
         # Improved DataLoader with parallel workers and pinned memory
-        num_workers = min(8, os.cpu_count() or 4)  # Use at most 8 workers or available CPU cores
+        num_workers = min(4, os.cpu_count())  # Use at most 8 workers or available CPU cores
         dataloader = DataLoader(
             dataset, 
             batch_size=cfg.experiment.batch_size, 

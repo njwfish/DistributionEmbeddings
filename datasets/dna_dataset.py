@@ -141,7 +141,7 @@ class DNADataset(Dataset):
                    f"in {time.time() - start_time:.2f} seconds")
     
     def __len__(self):
-        return len(self.data)
+        return len(self.data) // 100
     
     def __getitem__(self, idx):
         """
@@ -150,7 +150,7 @@ class DNADataset(Dataset):
         When idx is None, samples using the hierarchical sampling strategy:
         1. Randomly select a tissue
         2. With probability p_sample_level, sample from the same sample
-           Otherwise, sample from the tissue level by mixing tokenized data from different samples
+            Otherwise, sample from the tissue level
         
         Args:
             idx: Index of the item to get, or None to perform hierarchical sampling
@@ -161,124 +161,45 @@ class DNADataset(Dataset):
         # Hierarchical sampling
         # First, randomly select a tissue
         tissue = random.choice(self.tissue_types)
-        
-        # Then, decide whether to sample at sample level or tissue level
-        if random.random() < self.p_sample_level:
-            # Sample level: get sets from the same sample
-            # Get all samples for this tissue
-            tissue_indices = self.tissue_to_indices[tissue]
-            if not tissue_indices:
-                # Fallback to random sampling if no indices for this tissue
-                idx = random.randint(0, len(self.data) - 1)
-            else:
-                # Get a random set from this tissue
-                random_tissue_idx = random.choice(tissue_indices)
-                sample_id = self.data[random_tissue_idx]["sample_id"]
-                
-                # Get all sets from this sample
-                sample_indices = self.sample_to_indices[sample_id]
-                idx = random.choice(sample_indices)
-        else:
-            # Tissue level: mix tokenized data from different samples
-            tissue_indices = self.tissue_to_indices[tissue]
-            if not tissue_indices:
-                # Fallback to random sampling if no indices for this tissue
-                idx = random.randint(0, len(self.data) - 1)
-            else:
-                # Get all unique sample IDs for this tissue
-                sample_ids = list(set(self.data[i]["sample_id"] for i in tissue_indices))
-                
-                # Get a reference set to know the size and use as base
-                ref_idx = random.choice(tissue_indices)
-                ref_set = self.data[ref_idx]
-                
-                # Create a copy of the reference set
-                mixed_set = {
-                    "tissue_type": tissue,
-                    "sample_id": "tissue_level",
-                    "sequences": ref_set["sequences"].copy(),
-                    "tokenized": {
-                        "encoder_inputs": ref_set["tokenized"]["encoder_inputs"].clone(),
-                        "hyena_input_ids": ref_set["tokenized"]["hyena_input_ids"].clone(),
-                        "hyena_attention_mask": ref_set["tokenized"]["hyena_attention_mask"].clone()
-                    }
-                }
-                
-                # Determine how many samples to mix from (max 5 or 1/3 of total samples)
-                num_samples_to_mix = min(5, max(1, len(sample_ids)))
-                
-                # Randomly select samples to mix from (excluding the reference sample)
-                ref_sample_id = ref_set["sample_id"]
-                other_sample_ids = [s for s in sample_ids if s != ref_sample_id]
-                if other_sample_ids:
-                    samples_to_mix = np.random.choice(other_sample_ids, 
-                                                    size=min(num_samples_to_mix, len(other_sample_ids)), 
-                                                    replace=False)
-                    
-                    # For each selected sample, replace a random subset of tokenized data
-                    for sample_id in samples_to_mix:
-                        sample_indices = self.sample_to_indices[sample_id]
-                        if not sample_indices:
-                            continue
-                            
-                        # Get a random set from this sample
-                        set_idx = np.random.choice(sample_indices)
-                        set_data = self.data[set_idx]
-                        
-                        # Replace a random subset of tokenized data
-                        seq_len = mixed_set["tokenized"]["encoder_inputs"].shape[1]
-                        replace_indices = np.random.choice(
-                            seq_len, 
-                            size=seq_len // (num_samples_to_mix + 1), 
-                            replace=False
-                        )
-                        
-                        # Replace the tokenized data at selected indices
-                        mixed_set["tokenized"]["encoder_inputs"][:, replace_indices] = set_data["tokenized"]["encoder_inputs"][:, replace_indices]
-                        mixed_set["tokenized"]["hyena_input_ids"][:, replace_indices] = set_data["tokenized"]["hyena_input_ids"][:, replace_indices]
-                        mixed_set["tokenized"]["hyena_attention_mask"][:, replace_indices] = set_data["tokenized"]["hyena_attention_mask"][:, replace_indices]
-                
-                # Fix the hyena input ids
-                toks = torch.flip(mixed_set["tokenized"]["hyena_input_ids"], [1])
-                sep_idx = (toks == 0)
-                cls_idx = (toks == 1)
-                toks[sep_idx] = 1
-                toks[cls_idx] = 0
-                mixed_set["tokenized"]["hyena_input_ids"] = toks
-                mixed_set["tokenized"]["hyena_attention_mask"] = torch.flip(mixed_set["tokenized"]["hyena_attention_mask"], [1])
-                
-                return {
-                    'tissue_type': mixed_set["tissue_type"],
-                    'sample_id': mixed_set["sample_id"],
-                    'samples': {
-                        'encoder_inputs': mixed_set["tokenized"]["encoder_inputs"],
-                        'hyena_input_ids': mixed_set["tokenized"]["hyena_input_ids"],
-                        'hyena_attention_mask': mixed_set["tokenized"]["hyena_attention_mask"]
-                    },
-                    'raw_texts': mixed_set["sequences"],
-                    'classes': self.tissue_types_oh[mixed_set["tissue_type"]].repeat(toks.shape[0], 1)
-                }
-        
-        # Return the data at the selected index
-        item = self.data[idx]
 
-        # Fix the hyena input ids
-        toks = torch.flip(item["tokenized"]["hyena_input_ids"], [1])
-        sep_idx = (toks == 0)
-        cls_idx = (toks == 1)
-        toks[sep_idx] = 1
-        toks[cls_idx] = 0
-        item["tokenized"]["hyena_input_ids"] = toks
-        item["tokenized"]["hyena_attention_mask"] = torch.flip(item["tokenized"]["hyena_attention_mask"], [1])
+        # Tissue level: randomly select any set from this tissue
+        tissue_indices = self.tissue_to_indices[tissue]
 
-        return {
-            'tissue_type': item["tissue_type"],
-            'sample_id': item["sample_id"],
+        sets = {
+            'tissue_type': tissue,
             'samples': {
-                'encoder_inputs': item["tokenized"]["encoder_inputs"],
-                'hyena_input_ids': item["tokenized"]["hyena_input_ids"],
-                'hyena_attention_mask': item["tokenized"]["hyena_attention_mask"]
+                'encoder_inputs': [],
+                'hyena_input_ids': [],
+                'hyena_attention_mask': []
             },
-            'raw_texts': item["sequences"],
-            'classes': self.tissue_types_oh[item["tissue_type"]].repeat(toks.shape[0], 1)
-        } 
+            'raw_texts': [],
+            'classes': []
+        }
+
+        for i in range(350):
+            idx = random.choice(tissue_indices)
+            
+            # Return the data at the selected index
+            item = self.data[idx]
+
+            # Fix the hyena input ids
+            toks = torch.flip(item["tokenized"]["hyena_input_ids"], [1])
+            sep_idx = (toks == 0)
+            cls_idx = (toks == 1)
+            toks[sep_idx] = 1
+            toks[cls_idx] = 0
+            item["tokenized"]["hyena_input_ids"] = toks
+            item["tokenized"]["hyena_attention_mask"] = torch.flip(item["tokenized"]["hyena_attention_mask"], [1])
+
+            sets['samples']['encoder_inputs'].append(item["tokenized"]["encoder_inputs"])
+            sets['samples']['hyena_input_ids'].append(item["tokenized"]["hyena_input_ids"])
+            sets['samples']['hyena_attention_mask'].append(item["tokenized"]["hyena_attention_mask"])
+            sets['classes'].append(self.tissue_types_oh[item["tissue_type"]].repeat(toks.shape[0], 1))
+            sets['raw_texts'] += item["sequences"]
+
+        sets['samples']['encoder_inputs'] = torch.cat(sets['samples']['encoder_inputs'], dim=0)
+        sets['samples']['hyena_input_ids'] = torch.cat(sets['samples']['hyena_input_ids'], dim=0)
+        sets['samples']['hyena_attention_mask'] = torch.cat(sets['samples']['hyena_attention_mask'], dim=0)
+        sets['classes'] = torch.cat(sets['classes'], dim=0)
+
+        return sets
