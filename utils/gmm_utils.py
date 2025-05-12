@@ -163,7 +163,7 @@ def plot_gmm_trajectory(means: np.ndarray,
     # Create smaller inset axes for the weight simplex in the bottom left corner
     # with white background and black outline
     # ax_inset = fig.add_axes([0.16, 0.1, 0.23, 0.17], facecolor='white')
-    ax_inset = fig.add_axes([0.15, 0.1, 0.3, 0.25], facecolor='white')
+    ax_inset = fig.add_axes([0.17, 0.12, 0.32, 0.27], facecolor='white')
     ax_inset.spines['top'].set_color('black')
     ax_inset.spines['right'].set_color('black')
     ax_inset.spines['bottom'].set_color('black')
