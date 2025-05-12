@@ -3,7 +3,7 @@ import torch.nn as nn
 import numpy as np
 
 class KMEEncoder(nn.Module):
-    def __init__(self, data_shape, gamma=0.1, d=32, seed=None, train_W=False):
+    def __init__(self, data_shape, gamma=1., d=32, seed=None, train_W=False):
         super().__init__()
         self.gamma = gamma
         self.d = d//2

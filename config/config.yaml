@@ -13,7 +13,7 @@ defaults:
   - wandb: default  # Default W&B config
   - experiment: mvn  # Experiment-specific configurations
   - loss: default  # Default loss config
-  - override hydra/launcher: slurm
+  - override hydra/launcher: slurm_quick
   - _self_
 
 # Basic experiment settings

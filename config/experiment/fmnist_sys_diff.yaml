@@ -1,0 +1,23 @@
+# @package _global_.experiment
+
+# Experiment name and description
+name: fmnist_systematic_exp
+description: "FMNIST experiment with distribution embeddings"
+
+# Override defaults from config.yaml
+defaults:
+  - /dataset: fashion_mnist
+  - /model: context_unet
+  - /generator: ddpm
+  - /mixer: dirichlet_k
+  - /wandb: disabled
+  - /training: timed
+
+# Experiment-specific parameters
+latent_dim: 64
+hidden_dim: 256
+set_size: 64
+batch_size: 10
+n_mix: 3
+lr: 2e-4 
+alpha: 1.0

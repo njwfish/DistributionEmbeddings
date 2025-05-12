@@ -24,7 +24,8 @@ class Trainer:
         patience=10,
         use_tqdm=True,
         mask_context_prob=0.0,
-        sub_epoch=None
+        sub_epoch=None,
+        max_time=None, # in seconds
     ):
         """
         Initialize the trainer.
@@ -57,6 +58,7 @@ class Trainer:
         self.no_improve_count = 0
         # log sub_epoch_interval
         self.logger.info(f"Sub epoch interval: {self.sub_epoch_interval}, save interval: {self.save_interval}, eval interval: {self.eval_interval}")
+        self.max_time = max_time
     
     def _find_similar_experiment_by_name(self, experiment_name, current_config, base_dir):
         """
@@ -272,6 +274,23 @@ class Trainer:
                 pbar = tqdm(dataloader, desc=f"Epoch {epoch+1}/{self.num_epochs}")
             else:
                 pbar = dataloader
+
+            if self.max_time:
+                elapsed = time.time() - start_time
+                if self.max_time < elapsed:
+                    self.logger.info(f"Max time reached: {self.max_time} seconds")
+                    best_model_path = os.path.join(output_dir, "best_model.pt")
+                    torch.save({
+                        'epoch': epoch + 1,
+                        'encoder_state_dict': encoder.state_dict(),
+                        'generator_state_dict': generator.model.state_dict(),
+                        'optimizer_state_dict': optimizer.state_dict(),
+                        'scheduler_state_dict': scheduler.state_dict(),
+                        'loss': None,
+                        'step': step,
+                    }, best_model_path)
+                    self.logger.info(f"model saved to {best_model_path}")
+                    break
             
             # Train for one epoch
             for batch_idx, batch in enumerate(pbar):

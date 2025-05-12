@@ -46,6 +46,7 @@ def fit_gmm_batch(samples: np.ndarray,
         # double cast weights to normalize
         weights_init_double = init_weights[mix_idx].astype(np.float64)
         weights_init_double = weights_init_double / np.sum(weights_init_double)
+        
         if not use_kmeans_init:
             gmm = GaussianMixture(
                 n_components=n_components,
@@ -71,6 +72,7 @@ def fit_gmm_batch(samples: np.ndarray,
         gmm.fit(samples[mix_idx])
         
         # Store results
+        means[mix_idx] = gmm.means_
         covs[mix_idx] = gmm.covariances_
         weights[mix_idx] = gmm.weights_
         # print("Fit GMM for mixture", mix_idx)

@@ -63,7 +63,7 @@ class CVAE(nn.Module):
         
         # Sample latent using reparameterization
         z = self.reparameterize(mu, logvar)
-        
+
         # Decode
         recon = self.model.decode(z, c)
         
@@ -91,10 +91,8 @@ class CVAE(nn.Module):
         
         # Expand context for the number of samples
         context = context.unsqueeze(1).repeat(1, num_samples, 1).view(-1, context.shape[-1])
-        
         # Sample from prior
-        z = torch.randn(context.shape[0], self.latent_dim).to(device)
-        
+        z = torch.randn(num_samples*n_sets, self.latent_dim).to(device)
         # Decode
         with torch.no_grad():
             samples = self.model.decode(z, context)

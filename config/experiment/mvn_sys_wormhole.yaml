@@ -1,16 +1,16 @@
 # @package _global_.experiment
 
 # Experiment name and description
-name: gmm_systematic_exp
+name: mvn_systematic_exp
 description: "Low rank multivariate normal experiment with distribution embeddings"
 
 # Override defaults from config.yaml
 defaults:
   - /dataset: mvn
-  - /encoder: wormhole_encoder
   - /generator: wormhole
   - /mixer: none
   - /wandb: disabled
+  - /training: timed
 
 # Experiment-specific parameters
 latent_dim: 32

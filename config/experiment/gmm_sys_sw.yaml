@@ -11,10 +11,11 @@ defaults:
   - /generator: wasserstein
   - /mixer: dirichlet_k
   - /wandb: disabled
+  - /training: timed
 
 # Experiment-specific parameters
-latent_dim: 32
-hidden_dim: 128
+latent_dim: 128
+hidden_dim: 512
 set_size: 64
 batch_size: 256
 n_mix: 3

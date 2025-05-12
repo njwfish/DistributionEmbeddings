@@ -1,0 +1,10 @@
+# @package _global_.training
+_target_: training.Trainer
+num_epochs: 10000
+log_interval: 100
+save_interval: 20
+eval_interval: 10000
+early_stopping: false
+patience: 5
+use_tqdm: false 
+max_time: 900

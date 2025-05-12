@@ -1,7 +1,7 @@
 # @package _global_.experiment
 
 # Experiment name and description
-name: gmm_systematic_exp
+name: mvn_systematic_exp
 description: "Low rank multivariate normal experiment with distribution embeddings"
 
 # Override defaults from config.yaml
@@ -11,6 +11,7 @@ defaults:
   - /generator: ddpm
   - /mixer: none
   - /wandb: disabled
+  - /training: timed
 
 # Experiment-specific parameters
 latent_dim: 32
