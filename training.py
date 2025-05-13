@@ -365,7 +365,7 @@ class Trainer:
                     wandb.save(checkpoint_path)
             
             # Evaluation and early stopping logic
-            if (epoch + 1) % self.eval_interval == 0 or (epoch + 1) == self.num_epochs:
+            if ((epoch + 1) % self.eval_interval == 0 or (epoch + 1) == self.num_epochs):#  and False:
                 eval_loss = self._evaluate(encoder, generator, dataloader, device)
                 stats['eval_losses'].append(eval_loss)
                 

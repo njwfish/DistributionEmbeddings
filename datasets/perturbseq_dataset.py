@@ -105,6 +105,7 @@ class PerturbseqDataset(Dataset):
         
         # Apply deterministic PCA if requested
         if pca_components > 0 and pca_components < embeddings.shape[1]:
+            print(f"Applying PCA with {pca_components} components")
             # Initialize PCA with a fixed random state for determinism
             random_state = 42 if seed is None else seed
             pca = PCA(n_components=pca_components, random_state=random_state)
@@ -113,6 +114,8 @@ class PerturbseqDataset(Dataset):
             # Print the explained variance ratio
             explained_variance = np.sum(pca.explained_variance_ratio_)
             print(f"PCA with {pca_components} components explains {explained_variance:.4f} of variance")
+        else:
+            print(f"No PCA applied, using {embeddings.shape[1]} components")
         
         # Store as a dictionary
         self.pert_embeddings = {pert_names[i]: embeddings[i] for i in range(len(pert_names))}

@@ -5,7 +5,31 @@ from encoder.encoders import DistributionEncoderResNet, DistributionEncoderResNe
 
 import torch
 import torch.nn as nn
-    
+
+class FullyInteractedPertPredictor(nn.Module):
+    def __init__(self, latent_dim, pert_embedding_dim, dropout=0.1):
+        super(FullyInteractedPertPredictor, self).__init__()
+        self.latent_dim = latent_dim
+        self.pert_embedding_dim = pert_embedding_dim
+        self.weights = nn.Parameter(torch.zeros(latent_dim * pert_embedding_dim, latent_dim))
+        self.bias = nn.Parameter(torch.zeros(latent_dim))
+        
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, ctrl_latent, pert_embedding):
+        # compute interaction between latent and pert embedding flattened
+        # then apply dropout
+        # then apply a linear layer to get the final prediction
+
+        batch_size = ctrl_latent.shape[0]
+
+        interaction = torch.einsum('bi,bj->bij', ctrl_latent, pert_embedding)
+        interaction = interaction.reshape(batch_size, -1)
+        interaction = self.dropout(interaction)
+        pred = interaction @ self.weights + self.bias
+        
+        return pred
+        
 
 class FullyInteractedPolynomialPertPredictor(nn.Module):
     def __init__(self, latent_dim, pert_embedding_dim, dropout=0.1):
@@ -55,10 +79,10 @@ class FullyInteractedPolynomialPertPredictor(nn.Module):
         return pred
 
 class DistributionEncoderResNetPertPredictor(DistributionEncoderResNet):
-    def __init__(self, in_dim, latent_dim, hidden_dim, set_size, layers=2, fc_layers=2, norm=True, pert_embedding_dim=128):
+    def __init__(self, in_dim, latent_dim, hidden_dim, set_size, layers=2, fc_layers=2, norm=True, pert_embedding_dim=128, dropout=0.1):
         super().__init__(in_dim, latent_dim, hidden_dim, set_size, layers, fc_layers, norm)
         
-        self.pert_predictor = FullyInteractedPolynomialPertPredictor(latent_dim, pert_embedding_dim)
+        self.pert_predictor = FullyInteractedPertPredictor(latent_dim, pert_embedding_dim, dropout)
         self.mean_predictor = nn.Linear(latent_dim, in_dim)
         
 
@@ -66,7 +90,7 @@ class DistributionEncoderResNetTxPertPredictor(DistributionEncoderResNetTx):
     def __init__(self, in_dim, latent_dim, hidden_dim, set_size, layers=2, fc_layers=2, heads=4, norm=True, pert_embedding_dim=128):
         super().__init__(in_dim, latent_dim, hidden_dim, set_size, layers, fc_layers, heads, norm)
         
-        self.pert_predictor = FullyInteractedPolynomialPertPredictor(latent_dim, pert_embedding_dim)
+        self.pert_predictor = FullyInteractedPertPredictor(latent_dim, pert_embedding_dim, dropout)
         self.mean_predictor = nn.Linear(latent_dim, in_dim)
         
         

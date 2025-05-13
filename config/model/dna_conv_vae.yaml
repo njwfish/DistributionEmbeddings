@@ -1,0 +1,12 @@
+ # @package _global_.model
+_target_: model.dna_conv_vae.DNAConvVAE
+
+seq_len: ${experiment.seq_len}                # Sequence length
+vocab_size: 5               # Vocabulary size (A, C, G, T, N)
+
+hidden_channels_list: [64, 64, 64] # Output channels for each 1D conv layer in the encoder
+kernel_size: 5             # Kernel size for 1D convolutions
+
+condition_latent_dim: ${experiment.latent_dim}    # Dimension of the input condition vector (e.g., from a distribution encoder)
+vae_latent_dim: ${experiment.latent_dim}         # Dimension of the VAE's own latent space (z)
+embed_dim_for_condition: 64 # Dimension to project the condition_latent_dim before concatenation

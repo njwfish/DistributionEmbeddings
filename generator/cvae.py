@@ -55,6 +55,10 @@ class CVAE(nn.Module):
         """
         Forward pass for training. Returns reconstruction loss and KL divergence.
         """
+        if isinstance(x, dict):
+            x = x['encoder_inputs']
+            batch_size, set_size, seq_len, channels = x.shape
+            x = x.view(batch_size * set_size, seq_len, channels)
         # Expand condition to match batch size if needed
         c = c.unsqueeze(1).repeat(1, x.shape[0] // c.shape[0], 1).view(-1, c.shape[-1])
         
@@ -82,7 +86,7 @@ class CVAE(nn.Module):
     def loss(self, x, c):
         return self.forward(x, c)
 
-    def sample(self, context, num_samples):
+    def sample(self, context, num_samples, return_texts=False):
         """
         Sample from the CVAE given context vectors.
         """
@@ -98,6 +102,22 @@ class CVAE(nn.Module):
         # Decode
         with torch.no_grad():
             samples = self.model.decode(z, context)
+
+        if return_texts:
+            # this does not work
+            import numpy as np
+            vocab = np.array(['A', 'C', 'G', 'T', 'N'])
+            # sample along last axis to get one sample
+            _, seq_len, vocab_size = samples.shape
+            samples = torch.argmax(samples, dim=-1).detach().cpu().numpy()
+            print("samples shape", samples)
+            all_texts = vocab[samples]
+            # convert to string
+            all_texts = [''.join(text) for text in all_texts]
+            # reshape to batch_size, num_samples
+            all_texts = np.array(all_texts).reshape(n_sets, num_samples)
+            samples = torch.tensor(samples).reshape(n_sets, num_samples, seq_len)
+            return samples, all_texts
         
         # Reshape to match the expected output format
         samples = samples.view(n_sets, num_samples, -1)

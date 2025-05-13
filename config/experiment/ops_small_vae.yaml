@@ -1,0 +1,23 @@
+# @package _global_.experiment
+
+# Experiment name and description
+name: ops
+description: "OPS experiment with distribution embeddings"
+
+# Override defaults from config.yaml
+defaults:
+  - /dataset: ops_small
+  - /encoder: conv_gnn
+  - /model: cnnvae_large  # Use the context_unet model for DDPM
+  - /generator: cvae  # Use the DDPM generator
+  - /scheduler: cosine
+  - /training: long_epochs
+
+# Experiment-specific parameters
+latent_dim: 128
+hidden_dim: 256
+set_size: 64 
+batch_size: 4
+lr: 2e-4 
+spatial_prob: 0.0
+pert_embedding_dim: 16

@@ -15,7 +15,7 @@ defaults:
   - /mixer: dirichlet_k
 
 # Experiment-specific parameters
-latent_dim: 64
+latent_dim: 256
 hidden_dim: 256
 set_size: 768
 batch_size: 4

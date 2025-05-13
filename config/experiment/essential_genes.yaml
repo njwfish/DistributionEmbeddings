@@ -11,9 +11,7 @@ defaults:
   - /model: vae_mlp
   - /generator: cvae
   - /optimizer: adam
-  - /scheduler: cosine
   - /training: default
-  - /mixer: none
   - /wandb: default
   - /loss: perturbseq
 
@@ -24,7 +22,7 @@ hidden_dim: 1024
 noise_dim: 64
 set_size: 100
 batch_size: 96
-lr: 1e-4 
-pert_embedding_dim: 16
+lr: 5e-5
+pert_embedding_dim: 3072
 mean_loss_weight: 1.0
 pert_pred_loss_weight: 0.5
