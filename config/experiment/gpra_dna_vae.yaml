@@ -1,0 +1,25 @@
+# @package _global_.experiment
+
+# Experiment name and description
+name: gpra_dna_exp
+description: "GPRA DNA experiment with distribution embeddings using CVAE"
+
+# Override defaults from config.yaml
+defaults:
+  - /dataset: gpra_dna
+  - /encoder: dna_conv
+  - /generator: cvae
+  - /model: dna_conv_vae
+  - /training: long_epochs
+# Experiment-specific parameters
+latent_dim: 64
+hidden_dim: 256
+set_size: 100
+batch_size: 32
+lr: 2e-5
+weight_decay: 1e-5
+seq_len: 129
+
+# DNA-specific model parameters (used by other configs via interpolation)
+esm_model_name: null  # Not used for DNA
+progen2_model_name: null  # Not used for DNA 
