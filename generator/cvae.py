@@ -97,7 +97,7 @@ class CVAE(nn.Module):
         context = context.unsqueeze(1).repeat(1, num_samples, 1).view(-1, context.shape[-1])
         
         # Sample from prior
-        z = torch.randn(context.shape[0], self.latent_dim).to(device)
+        z = torch.randn(context.shape[0], self.noise_shape).to(device)
         
         # Decode
         with torch.no_grad():
@@ -120,6 +120,7 @@ class CVAE(nn.Module):
             return samples, all_texts
         
         # Reshape to match the expected output format
-        samples = samples.view(n_sets, num_samples, -1)
+        _, *shape = samples.shape
+        samples = samples.view(n_sets, num_samples, *shape)
         
         return samples 

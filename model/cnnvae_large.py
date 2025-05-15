@@ -121,7 +121,7 @@ class CNNVAELarge(nn.Module):
         self.out_conv = nn.Sequential(
             ResidualConvBlock(n_feat, n_feat, is_res=True),
             nn.Conv2d(n_feat, in_channels, 3, 1, 1),
-            nn.Sigmoid()  # Output values between 0 and 1 for images
+            nn.Tanh()  # Output values between 0 and 1 for images
         )
     
     def encode(self, x, c):

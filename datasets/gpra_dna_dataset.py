@@ -171,7 +171,8 @@ class GPRADNADataset(Dataset):
             'samples': {
                 'encoder_inputs': item["tokenized"]["encoder_inputs"],
                 'hyena_input_ids': item["tokenized"]["hyena_input_ids"],
-                'hyena_attention_mask': item["tokenized"]["hyena_attention_mask"]
+                'hyena_attention_mask': item["tokenized"]["hyena_attention_mask"],
+                'center_quantile': torch.ones(item["tokenized"]["hyena_input_ids"].shape[0]) * quantile,
             },
             'raw_texts': item.get("sequences", []).tolist()
         }

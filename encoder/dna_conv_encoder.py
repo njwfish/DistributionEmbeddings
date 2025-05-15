@@ -8,6 +8,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from encoder.encoders import DistributionEncoderGNN
+
 class Conv1DGNNLayer(nn.Module):
     """
     A single convolutional GNN layer that processes sets of DNA sequences.
@@ -178,3 +180,22 @@ class DNAConvEncoder(nn.Module):
         latent = self.final_mlp(pooled)
         
         return latent 
+
+class DEGNNWrapper(DistributionEncoderGNN):
+    def __init__(self, **kwargs):
+        kwargs['in_dim'] = 1
+        super().__init__(**kwargs)
+        
+    def forward(self, x):
+        x = x['center_quantile'][..., None]
+        enc = self.encoder(x)
+        # generate compressed latent by mean pooling
+        enc_mean = torch.mean(enc, dim=1)
+        # enc_mean = torch.median(enc, dim=1).values
+        lat = self.latent_act(self.latent_proj(enc_mean))
+        return lat
+        
+        
+        
+        
+        

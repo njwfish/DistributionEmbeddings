@@ -103,13 +103,22 @@ class DDPM(nn.Module):
     def loss(self, x, c):
         return self.forward(x, c)
 
-    def sample(self, context, num_samples, return_trajectory=False):
+    def sample(self, context, num_samples, return_trajectory=False, border=None):
         device = context.device
         n_sets = context.shape[0]
         context = context.unsqueeze(1).repeat(1, num_samples, 1).view(-1, context.shape[-1]) 
         n_sample = context.shape[0]
 
         x = torch.randn(n_sample, *self.noise_shape).to(device)  # x_T ~ N(0, 1), sample initial noise
+
+        if border is not None:
+            _ts = torch.arange(0 , self.n_T, 1).to(device)
+            print(x.shape, border.shape, self.sqrtab.to(device)[_ts][(...,) + (None,) * (x.ndim - 1)].shape, x.shape)
+            border_t = (
+                self.sqrtab.to(device)[_ts][(...,) + (None,) * (x.ndim)] * border[None,...]
+                + self.sqrtmab.to(device)[_ts][(...,) + (None,) * (x.ndim)] * x[None, ...]
+            )
+            print(border_t.shape)
 
         x_trajectory = [] # keep track of generated steps in case want to plot something 
         for i in range(self.n_T, 0, -1):
@@ -118,6 +127,9 @@ class DDPM(nn.Module):
             t_is = t_is.repeat(n_sample, *([1] * (x.ndim - 1)))
 
             z = torch.randn_like(x).to(device) if i > 1 else 0
+
+            if border is not None:
+                x[border <= -1] = border_t[i - 1][border <= -1]
 
             with torch.no_grad():
                 if self.subsample_indices is not None:

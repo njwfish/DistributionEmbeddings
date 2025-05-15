@@ -10,7 +10,6 @@ defaults:
   - /encoder: conv_gnn
   - /model: cnnvae_large  # Use the context_unet model for DDPM
   - /generator: cvae  # Use the DDPM generator
-  - /scheduler: cosine
   - /training: long_epochs
 
 # Experiment-specific parameters
@@ -18,6 +17,8 @@ latent_dim: 128
 hidden_dim: 256
 set_size: 64 
 batch_size: 4
-lr: 2e-5 
+lr: 2e-5
 spatial_prob: 0.0
 pert_embedding_dim: 16
+kl_anneal_steps: 10000
+beta: 1.0
