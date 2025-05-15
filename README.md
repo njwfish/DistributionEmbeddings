@@ -234,7 +234,7 @@ The project uses a sophisticated hash-based output tracking system that organize
 ```
 outputs/
 └── experiment_name_[hash]/       # Hash-based experiment directories
-    ├── config.yaml               # Complete experiment configuration 
+    ├── config.yaml               # Complete experiment configuration
     ├── best_model.pt             # Best model checkpoint
     ├── checkpoint_*.pt           # Training checkpoints at different epochs
     ├── metrics.json              # Evaluation metrics
@@ -243,402 +243,270 @@ outputs/
 
 The output system has several layers of organization:
 
-1. **Hash-based experiment directories**: 
+1. **Hash-based experiment directories**:
    - Each unique configuration gets a deterministic hash (MD5 of sorted config)
    - Directory names follow the pattern `experiment_name_[hash]`
    - Enables exact experiment reproducibility and automatic resumption
    - Stored in the top level of the `outputs/` directory
 
-2. **Timestamped run directories**:
-   - For experiments that don't use the hash-based system
-   - Organized by date and time of execution
-   - Contain all files related to a single run
-   - Used primarily for exploratory experiments 
+2. **Experiment-specific files**:
+   - `config.yaml`: The full Hydra configuration for the run
+   - `best_model.pt`: Checkpoint of the model with the best validation performance
+   - `checkpoint_epoch_N.pt`: Periodic checkpoints during training
+   - `metrics.json`: Key metrics logged during training and evaluation
+   - `wandb/`: If Weights & Biases is enabled, logs and metadata are synced here.
 
-3. **Multirun directories**:
-   - Created when running multiple configurations with `--multirun`
-   - Each subfolder represents a separate run with different parameters
-   - Organized hierarchically by date, time, and run number
-   - Located in the separate `multirun/` directory at the project root
+3. **Multirun outputs**:
+   - When using `--multirun`, Hydra creates a parent directory for the multirun job
+   - Individual run outputs are nested within this parent directory
+   - Located in the `multirun/` directory by default
 
-#### Hash Generation Process
+This structured output system facilitates:
+- Easy tracking and comparison of experiments
+- Reproducibility of results
+- Efficient storage and retrieval of models and data
 
-The hash generation is controlled by `utils/hash_utils.py` and works as follows:
+## Applications
 
-1. Configuration is converted to a dictionary and normalized
-2. Non-deterministic keys are excluded (`hydra`, `seed`, `device`, `wandb`, etc.)
-3. Keys are sorted alphabetically for consistent ordering
-4. The configuration is serialized to JSON and hashed with MD5
-5. The resulting hash becomes part of the output directory name
+This section details the main applications and experiments implemented in this project. Each application leverages the distribution embedding framework to model and generate data in various domains. For more in-depth theoretical background and results, a supplementary manuscript is available (see `generative_distribution_embeddings (7).pdf`).
 
-#### Experiment Resumption
+### 1. Multinomial Distributions
 
-When you run an experiment, the system:
+*   **Description**: Models sets of multinomial distributions. This is a foundational statistical experiment to validate the core embedding and generation capabilities.
+*   **Configuration**:
+    *   Experiment: `config/experiment/multinomial.yaml` (name: `multinomial`)
+    *   Dataset: `config/dataset/multinomial.yaml`
+*   **Dataset**: `datasets.distribution_datasets.MultinomialDistributionDataset` (generates synthetic multinomial data).
+*   **How to run**:
+    ```bash
+    python main.py experiment=multinomial
+    ```
+*   **Notebook**: `notebooks/multinomial_distributions.ipynb`
 
-1. Computes the hash of your current configuration
-2. Searches for existing directories with matching hashes
-3. If found, loads the latest checkpoint and resumes training
-4. If not found, creates a new directory and starts fresh
+### 2. Multinomial MNIST
 
-This enables automatic experiment resumption without manual intervention:
+*   **Description**: Treats MNIST image pixel values (normalized and binned) as samples from multinomial distributions. Each image is a set of pixel distributions.
+*   **Configuration**:
+    *   Experiment: `config/experiment/mnist_multinomial.yaml` (name: `mnist_multinomial`)
+    *   Dataset: `config/dataset/mnist.yaml`
+    *   Mixer: `config/mixer/dirichlet_k.yaml` (often used)
+*   **Dataset**: `datasets.mnist.MNISTDataset` (configured for multinomial interpretation).
+*   **Mixer Class**: `mixer.mixer.SetMixer` with `dirichlet_k` config.
+*   **How to run**:
+    ```bash
+    python main.py experiment=mnist_multinomial
+    ```
+*   **Notebooks**:
+    *   `notebooks/mnist_multinomial.ipynb`
+    *   `notebooks/mnist_multinomial_interpolation.ipynb`
 
-```bash
-# Run an experiment
-python main.py --config-name pubmed_nlp
+### 3. Synthetic DNA
 
-# If interrupted, simply run the same command again to resume
-python main.py --config-name pubmed_nlp
-```
+*   **Description**: Generates and models distributions of synthetic DNA sequences, often with repeating patterns or motifs. Explores the use of convolutional encoders and HyenaDNA for sequence generation.
+*   **Configuration**:
+    *   Experiment (General): `config/experiment/synthetic_dna.yaml` (name: `synthetic_dna`)
+    *   Experiment (Multinomial DNA): `config/experiment/dna_multinomial.yaml` (name: `dna_multinomial`)
+    *   Dataset: `config/dataset/synthetic_dna.yaml`
+*   **Dataset**: `datasets.synthetic_dna.SyntheticDNADataset`.
+*   **How to run**:
+    ```bash
+    python main.py experiment=synthetic_dna
+    # OR for the multinomial variant
+    python main.py experiment=dna_multinomial
+    ```
+*   **Notebook**: `notebooks/dna_multinomial.ipynb`
 
-The trainer will locate the existing directory using the configuration hash, load the latest checkpoint, and continue training from where it left off.
+### 4. Multivariate Normal (MVN) Distributions
 
-## Experiment Types
+*   **Description**: Models sets of Multivariate Normal (MVN) distributions. This includes experiments with various complexities, dimensions, and systematic variations in model components (e.g., different loss functions like Sinkhorn, MMD, VAE-based).
+*   **Configuration**:
+    *   Main Experiment: `config/experiment/mvn.yaml` (name: `mvn`)
+    *   Systematic Variations (examples):
+        *   `config/experiment/mvn_sys_sw.yaml`
+        *   `config/experiment/mvn_sys_vae.yaml`
+        *   `config/experiment/mvn_sys_mmd.yaml`
+        *   `config/experiment/mvn_sys_sinkhorn.yaml`
+    *   Dataset: `config/dataset/mvn.yaml`
+*   **Dataset**: `datasets.distribution_datasets.MVNDataset`.
+*   **How to run**:
+    ```bash
+    python main.py experiment=mvn
+    # For systematic variations, e.g.:
+    # python main.py experiment=mvn_sys_vae
+    ```
+*   **Notebooks**:
+    *   `notebooks/mvn_ot.ipynb`
+    *   `notebooks/mvn_dists.ipynb`
 
-The project contains a variety of experiment configurations in the `config/experiment/` directory:
+### 5. Gaussian Mixture Models (GMM)
 
-### Statistical Distribution Experiments
+*   **Description**: Models sets of Gaussian Mixture Models. These experiments typically use an underlying MVN dataset and a Dirichlet mixer to create complex GMMs. Systematic variations explore different encoders and generators.
+*   **Configuration**:
+    *   Main Experiment: `config/experiment/gmm.yaml` (name: `gmm`)
+    *   Systematic Variations (examples, often run via shell scripts like `sys.sh`, `sys2.sh`):
+        *   `config/experiment/gmm_sys_vae.yaml`
+        *   `config/experiment/gmm_sys_diff.yaml` 
+        *   `config/experiment/gmm_sys_wormhole.yaml`
+    *   Dataset: `config/dataset/mvn.yaml`
+    *   Mixer: `config/mixer/dirichlet_k.yaml`
+*   **Dataset**: `datasets.distribution_datasets.MVNDataset` (used with a mixer).
+*   **Mixer Class**: `mixer.mixer.SetMixer` with `dirichlet_k` config.
+*   **How to run**:
+    ```bash
+    python main.py experiment=gmm
+    # Systematic experiments often launched via scripts like sys.sh / sys2.sh
+    # e.g., python main.py experiment=gmm_sys_vae encoder=gnn
+    ```
+*   **Notebooks**:
+    *   `notebooks/gmm_ot.ipynb`
+    *   `notebooks/gmm_dists.ipynb`
+    *   `notebooks/gmm_ot_pot_failure.ipynb`
 
-#### Multivariate Normal Distribution (MVN)
+### 6. Lineage Tracing (LT)
 
-```bash
-# Run the multivariate normal distribution experiment
-python main.py experiment=mvn
+*   **Description**: Analyzes clonal evolution in lineage-traced single-cell RNA-seq data (e.g., from Weinreb et al., 2020). Models distributions of cell states over time.
+*   **Configuration**:
+    *   Experiment: `config/experiment/lineage_tracing.yaml` (name: `lineage`)
+    *   Dataset: `config/dataset/lineage_tracing.yaml`
+*   **Dataset**: `datasets.lineage_tracing.LTSeqDataset` (handles data download and processing).
+*   **How to run**:
+    ```bash
+    python main.py experiment=lineage_tracing
+    # or potentially using the config name:
+    # python main.py experiment=lineage
+    ```
+*   **Notebook**: `notebooks/lineage_tracing_MI.ipynb` (focuses on mutual information analysis).
 
-# Customize MVN experiment parameters
-python main.py experiment=mvn experiment.latent_dim=32 experiment.set_size=500
-```
+### 7. Perturbation Prediction (Perturb-seq / Essential Genes)
 
-The MVN experiment models multivariate normal distributions using:
-- Resnet-based distribution encoder
-- Diffusion model (DDPM) generator
-- MLP-based model architecture
+*   **Description**: Focuses on predicting transcriptomic changes (e.g., from Perturb-seq experiments like the "essential_genes" dataset) in response to genetic perturbations. Models distributions of gene expression profiles.
+*   **Configuration**:
+    *   Main: `config/experiment/essential_genes.yaml` (name: `essential_genes_exp`)
+    *   Dataset: `config/dataset/essential_genes.yaml`
+    *   Encoder Example: `config/encoder/resnet_pert_pred.yaml` (for `DistributionEncoderResNetPertPredictor`)
+    *   Loss: `config/loss/perturbseq.yaml`
+*   **Dataset**: `datasets.perturbseq_dataset.PerturbseqDataset`.
+*   **How to run**:
+    ```bash
+    python main.py experiment=essential_genes
+    ```
 
-#### Gaussian Mixture Model (GMM)
+### 8. Optical Pooled Screening (OPS)
 
-```bash
-# Run the Gaussian mixture model experiment
-python main.py experiment=gmm
+*   **Description**: Analyzes data from Optical Pooled Screening, a high-throughput functional genomics technique using microscopy. Involves modeling distributions of image-based cellular phenotypes. Some configurations (e.g., `ops_pert.yaml`) may incorporate perturbation information.
+*   **Configuration**:
+    *   Main: `config/experiment/ops.yaml` (name: `ops`)
+    *   With Perturbation aspect: `config/experiment/ops_pert.yaml` (name: `ops`, but uses `encoder: conv_gnn_pert_pred` and `loss: perturbspatial`)
+    *   Dataset: `config/dataset/ops.yaml`, `config/dataset/ops_small.yaml`, `config/dataset/ops32.yaml`
+*   **Dataset**: `datasets.ops.OPSDataset` (and `datasets.ops32.OPS32Dataset`). Handles image tiles and associated perturbation information.
+*   **How to run**:
+    ```bash
+    python main.py experiment=ops
+    # For OPS with perturbation prediction aspects:
+    # python main.py experiment=ops_pert 
+    ```
+*   **Notebook**: `notebooks/ops.ipynb`
 
-# Customize GMM parameters
-python main.py experiment=gmm experiment.n_mix=5 experiment.alpha=0.8
-```
+### 9. DNA Methylation
 
-The GMM experiment uses a Dirichlet mixer to create mixtures of Gaussian distributions.
+*   **Description**: Models distributions of DNA methylation patterns from sequence data. Can be framed as a generative task or a classification task (predicting tissue type based on methylation patterns). Uses HyenaDNA for generation.
+*   **Configuration**:
+    *   Generative: `config/experiment/methylation.yaml` (name: `methyl_exp`)
+    *   Classification: `config/experiment/methylation_class.yaml` (name: `methyl_exp` but with classification encoder/loss)
+    *   Dataset: `config/dataset/methylation.yaml`
+*   **Dataset**: `datasets.dna_dataset.DNADataset`.
+*   **How to run**:
+    ```bash
+    python main.py experiment=methylation
+    # For classification:
+    # python main.py experiment=methylation_class loss=classification
+    ```
+*   **Notebooks**: `notebooks/methylation.ipynb`
 
-#### Normal Distribution with Wasserstein Generator
+### 10. GPRA (Gigantically Parallel Reporter Assay) DNA
 
-```bash
-# Run normal distribution experiment with Wasserstein distance
-python main.py experiment=normal
+*   **Description**: Learns expression patterns from Gigantically Parallel Reporter Assay (GPRA) DNA data. This involves modeling distributions of DNA sequences (e.g., promoters) associated with different expression level quantiles.
+*   **Configuration**:
+    *   Main: `config/experiment/gpra_dna.yaml` (name: `gpra_dna_exp`)
+    *   VAE variant: `config/experiment/gpra_dna_vae.yaml`
+    *   Ordered variant: `config/experiment/gpra_dna_ordered.yaml` (uses `loss: ordered`)
+    *   Dataset: `config/dataset/gpra_dna.yaml`
+*   **Dataset**: `datasets.gpra_dna_dataset.GPRADNADataset`.
+*   **How to run**:
+    ```bash
+    python main.py experiment=gpra_dna
+    # Or for variants:
+    # python main.py experiment=gpra_dna_vae
+    ```
+*   **Notebook**: `notebooks/gpra.ipynb`
 
-# Customize normal distribution experiment
-python main.py experiment=normal experiment.hidden_dim=128 generator=wasserstein
-```
+### 11. Viral Spike Protein Distributions
 
-#### Multinomial with Fisher-Rao Metric
-
-```bash
-# Run multinomial distribution with Fisher-Rao metric
-python main.py experiment=multinomial_fr
-```
-
-### Computer Vision Experiments
-
-#### MNIST PCA Experiment
-
-```bash
-# Run MNIST PCA experiment
-python main.py experiment=mnist_pca
-```
-
-Models the distribution of MNIST digits using PCA-based dimensionality reduction.
-
-#### MNIST Multinomial
-
-```bash
-# Run MNIST multinomial experiment
-python main.py experiment=mnist_multinomial
-```
-
-Treats MNIST data as multinomial distributions for modeling.
-
-#### CIFAR-10 and Fashion MNIST
-
-```bash
-# Run CIFAR-10 experiment
-python main.py experiment=cifar10
-
-# Run Fashion MNIST experiment
-python main.py experiment=fashion_mnist
-```
-
-Both provide image distribution embedding experiments with different datasets.
-
-### Biological Sequence Experiments
-
-#### Pfam Protein Families
-
-```bash
-# Run Pfam protein families experiment
-python main.py experiment=pfam
-```
-
-Uses protein language models (ESM and ProGen2) for protein family distribution modeling.
-
-#### Synthetic DNA and Protein Generation
-
-```bash
-# Run synthetic protein sequence generation
-python main.py experiment=synthetic_protein
-
-# Run synthetic DNA sequence generation
-python main.py experiment=synthetic_dna
-```
-
-Generate synthetic biological sequences from distribution embeddings.
-
-#### DNA Methylation Analysis
-
-```bash
-# Run DNA methylation analysis
-python main.py experiment=methylation
-```
-
-Models the distribution of DNA methylation patterns.
-
-#### Essential Genes Analysis
-
-```bash
-# Run essential genes analysis
-python main.py experiment=essential_genes
-
-# Customize essential genes experiment
-python main.py experiment=essential_genes generator=ddpm model=diffusion_gnn
-```
-
-Uses a specialized graph neural network for modeling essential gene patterns, bypassing the typical information bottleneck in single-cell gene expression modeling.
-
-### Natural Language Processing Experiments
-
-#### PubMed Document Distribution
-
-```bash
-# Run PubMed NLP experiment
-python main.py experiment=pubmed
-
-# Customize BERT and GPT-2 settings
-python main.py experiment=pubmed experiment.bert_model_name=bert-base-uncased experiment.freeze_bert=false
-```
-
-The PubMed experiment embeds and generates scientific abstracts using:
-- BERT-based document encoder
-- Distribution encoder to capture document set characteristics
-- GPT-2 generator to produce new documents
-
-The NLP experiment architecture:
-1. **BERT Document Encoder**: Processes each document and extracts features
-2. **Distribution Encoder**: Encodes the set of document features
-3. **GPT-2 Generator**: Generates new documents from the distribution embedding
+*   **Description**: Models distributions of viral spike protein sequences. Utilizes ESM (Evolutionary Scale Modeling) protein language models for embeddings and ProGen2 for sequence generation. Data often sourced from repositories like GISAID.
+*   **Configuration**:
+    *   Experiment: `config/experiment/virus.yaml` (name: `virus`)
+    *   Dataset: `config/dataset/virus.yaml`
+*   **Dataset**: `datasets.virus.ViralDataset`.
+*   **How to run**:
+    ```bash
+    python main.py experiment=virus
+    ```
+*   **Notebook**: `notebooks/gisaid.ipynb` (for analysis and data handling related to viral sequences).
 
 ## Experiment Management
 
-The project includes a comprehensive experiment management system to help track, compare, and analyze experiments. This system is built around the concept of configuration hashing and organized output directories.
+The project includes a command-line interface (`experiment_cli.py`) and utility functions (`utils/experiment_utils.py`) for managing and analyzing experiment results.
 
-### Experiment CLI Tool
+### Key Features
 
-The `experiment_cli.py` script provides a powerful command-line interface for managing experiments:
+- **List experiments**: View all completed experiments with their configurations and key metrics.
+- **Show experiment details**: Display the full configuration and results for a specific experiment.
+- **Compare experiments**: Compare configurations and metrics between two or more experiments.
+- **Load models and data**: Utilities to easily load trained models and datasets from experiment outputs.
+- **Hashing and reproducibility**: Ensures that each experiment run with a unique configuration is stored in a separate, identifiable directory.
+
+### CLI Usage Examples
 
 ```bash
-# List all experiments with key metadata (encoder, generator, model, dataset)
+# List all experiments (shows name, hash, key metrics)
 python experiment_cli.py list
 
-# Sort experiments by a specific field
-python experiment_cli.py list --sort-by best_loss
+# Show detailed config and metrics for an experiment (use name or hash)
+python experiment_cli.py show mvn_exp_a1b2c3d4
 
-# Show detailed information about a specific experiment (using name or hash)
-python experiment_cli.py show experiment_name_f7c3a9b42d
+# Compare two experiments side-by-side
+python experiment_cli.py compare mvn_exp_a1b2c3d4 mvn_exp_e5f6g7h8
 
-# Compare two experiments to see configuration and performance differences
-python experiment_cli.py compare experiment1 experiment2
+# Filter experiments by name
+python experiment_cli.py list --name_contains mvn
 
-# Find experiments matching a configuration file
-python experiment_cli.py find path/to/config.yaml
-
-# Calculate hash for a configuration file
-python experiment_cli.py hash path/to/config.yaml
-
-# Create metrics.json files to avoid loading checkpoints in the future
-python experiment_cli.py create-metrics
-
-# Clean up dead experiments (those with only config files and no outputs)
-python experiment_cli.py cleanup --dry-run
-python experiment_cli.py cleanup --force
+# Filter experiments by parameter values (e.g., latent_dim=64)
+python experiment_cli.py list --param "experiment.latent_dim=64"
 ```
 
-#### CLI Features and Implementation
+The CLI leverages the `utils/experiment_utils.py` module, which provides functions for parsing experiment configurations and results from the `outputs/` and `multirun/` directories.
 
-The experiment CLI tool offers several key features:
+## Model Architectures
 
-1. **Experiment Listing (`list`)**: 
-   - Displays all experiments in a tabular format
-   - Shows key model components (encoder, generator, model, dataset) by default
-   - Never loads checkpoints for listing to ensure fast performance
-   - Supports custom column selection and sorting
-   - Filters and formats output for easy readability
+The project implements several model architectures for encoders, decoders, and generators:
 
-2. **Experiment Details (`show`)**: 
-   - Shows comprehensive information about a specific experiment
-   - Displays detailed information about model components directly from the configuration
-   - Shows important parameters for each component (encoder, generator, model, dataset)
-   - Provides training information and available checkpoints
-   - Optionally displays the full configuration in YAML or JSON format
-   - Includes debug option for troubleshooting
+- **Encoders**:
+  - `encoder.encoders.ResNetDistEncoder`: ResNet-based encoder for distribution embeddings.
+  - `encoder.encoders.MLPDistEncoder`: MLP-based encoder.
+  - `encoder.nlp_encoders.BertSetEncoder`: BERT-based encoder for sets of documents.
+  - `encoder.conv_gnn.ConvGNNEncoder`: Graph Convolutional Network encoder.
+  - `encoder.protein_encoders.ProteinSetEncoder`: ESM-based encoder for sets of protein sequences.
+  - `encoder.dna_conv_encoder.DNAConvEncoder`: Convolutional encoder for DNA sequences.
+- **Generators**:
+  - `generator.ddpm.DDPM`: Denoising Diffusion Probabilistic Model.
+  - `generator.gpt2_generator.GPT2Generator`: GPT-2 based text generator.
+  - `generator.direct.DirectGenerator`: Simple direct generator (e.g., MLP).
+  - `generator.cvae.CVAE`: Conditional Variational Autoencoder.
+  - `generator.hyenadna_generator.HyenaDNAGenerator`: HyenaDNA for genomic sequence generation.
+  - `generator.protein_generator.Progen2Generator`: ProGen2 for protein sequence generation.
+- **Models (often used within CVAE or other frameworks)**:
+  - `model.gnn.GNN`: Graph Neural Network.
+  - `model.unet.UNet`: U-Net for diffusion models.
+  - `model.vae_mlp.VAEMLP`: MLP-based VAE.
 
-3. **Experiment Comparison (`compare`)**: 
-   - Side-by-side comparison of two experiment configurations
-   - Highlights differences in model components and hyperparameters
-   - Calculates percentage differences in performance metrics
-   - Provides detailed configuration differences when requested
-
-4. **Configuration-based Search (`find`)**: 
-   - Finds experiments that match a given configuration file
-   - Supports both exact and partial matching
-   - Helps avoid duplicate experiments
-
-5. **Hash Calculation (`hash`)**: 
-   - Computes the deterministic hash for any configuration
-   - Checks if an experiment with that hash already exists
-
-6. **Metrics File Creation (`create-metrics`)**: 
-   - Creates metrics.json files with performance data
-   - Avoids the need to load checkpoints when viewing experiment information
-   - Improves performance of the CLI tool
-
-7. **Dead Experiment Cleanup (`cleanup`)**: 
-   - Identifies experiments that only have config files without any outputs
-   - Supports dry-run mode to preview changes before execution
-   - Can move dead experiments to an archive directory instead of deleting
-   - Requires confirmation before making changes
-
-The CLI tool is designed to be efficient, never loading checkpoints unnecessarily and using cached metrics where possible to ensure fast performance even with large numbers of experiments.
-
-### Experiment Metadata and Tracking
-
-The experiment management system maintains various metadata files within each experiment directory:
-
-1. **Configuration Files**:
-   - `config.yaml`: Complete configuration used for the experiment
-   - `.hydra/overrides.yaml`: Command-line arguments that overrode the base config
-
-2. **Performance Metrics**:
-   - `metrics.json`: Summary of key metrics (best loss, best epoch) for quick access
-   - Log files with detailed training history
-
-3. **Checkpoints**:
-   - `best_model.ckpt`: Best performing model based on validation metrics
-   - `*.ckpt`: Periodic checkpoints at regular intervals
-
-The metadata and tracking system provides:
-- Complete reproducibility through saved configurations
-- Performance history for analysis
-- Easy comparison between different approaches
-- Efficient organization of hundreds of experiments
-
-### Experiment Reproducibility
-
-The hash-based output system ensures experiment reproducibility by:
-
-1. Generating a unique hash for each configuration
-2. Storing outputs in deterministically named directories
-3. Saving the full configuration alongside results
-4. Automatically detecting and reusing existing experiment outputs
-5. Supporting training resumption from checkpoints
-
-When you run an experiment with a configuration that matches a previous run, the system will detect this and can either:
-- Continue training from the last checkpoint
-- Inform you that results already exist for this configuration
-
-### Training Resumption System
-
-The project includes an automatic training resumption system that:
-
-1. Identifies interrupted experiments using their configuration hash
-2. Loads the latest checkpoint from the matching directory
-3. Restores model parameters, optimizer state, and scheduler state
-4. Continues training from the exact point where it stopped
-
-This provides several benefits:
-- Resilience against unexpected interruptions
-- Efficient use of computational resources
-- Simplified workflow when running long experiments
-- Consistent results regardless of interruptions
-
-To manually resume a specific experiment:
-
-```bash
-# Find the experiment you want to resume
-python experiment_cli.py list
-
-# Resume training with the same configuration
-python main.py --config-name your_config_name
-```
-
-The system automatically handles the rest, identifying the matching experiment and continuing from the latest checkpoint.
-
-## Visualization and Analysis
-
-### Results Visualization
-
-The project provides visualization utilities in the `utils/visualization.py` file. You can visualize results by:
-
-1. Direct visualization during training:
-   - The trainer automatically visualizes sample results at evaluation intervals
-   - Visualizations are saved in the experiment output directory
-
-2. Examining generated samples:
-   - For image data (MNIST): Compare original and generated images
-   - For distribution data: Compare original and generated distributions
-   - For text data: Compare original and generated texts
-
-3. Using visualization functions directly:
-   ```python
-   from utils.visualization import visualize_data, visualize_text_data
-   
-   # Visualize distribution data
-   visualize_data(save_path="output.png", real=real_samples, generated=gen_samples)
-   
-   # Visualize text data
-   visualize_text_data(output_dir="text_output", original_texts=orig_texts, generated_texts=gen_texts)
-   ```
-
-### Notebooks
-
-The `notebooks/` directory contains Jupyter notebooks with examples and experiments:
-
-- Data exploration for different distribution types
-- Training examples and parameter tuning
-- Visualization of embeddings and generated samples
-- Distribution manipulation in latent space
-
-## Weights & Biases Integration
-
-This project supports logging to [Weights & Biases](https://wandb.ai/). Configure your W&B settings in the config file:
-
-```yaml
-wandb:
-  project: "distribution-embeddings"
-  entity: "your-username"
-  mode: "online"  # Set to "disabled" to disable W&B logging
-```
-
-To enable W&B logging from the command line:
-
-```bash
-python main.py wandb.mode=online wandb.project=my-project wandb.entity=my-username
-```
-
-The configuration hash is also logged to W&B, making it easy to correlate W&B runs with local experiment directories.
-
-## License
-
-[MIT License](LICENSE) 
+Refer to the respective configuration files in `config/encoder/`, `config/generator/`, and `config/model/` for detailed settings. 
