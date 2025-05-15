@@ -1,0 +1,27 @@
+# @package _global_.experiment
+
+# Experiment name and description
+name: essential_genes_exp
+description: "Essential genes analysis using distribution embeddings"
+
+# Override defaults from config.yaml
+defaults:
+  - /dataset: essential_genes
+  - /encoder: wormhole_encoder
+  - /generator: wormhole
+  - /optimizer: adam
+  - /training: default
+  - /wandb: default
+  # - /loss: perturbseq
+
+# Experiment-specific parameters
+latent_dim: 128
+layers: 4
+hidden_dim: 1024
+noise_dim: 64
+set_size: 100
+batch_size: 8
+lr: 5e-5
+pert_embedding_dim: 3072
+# mean_loss_weight: 1.0
+# pert_pred_loss_weight: 0.5
