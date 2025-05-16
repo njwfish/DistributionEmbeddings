@@ -1,6 +1,6 @@
-# Distribution Embeddings
+# Generative Distribution Embeddings
 
-This repository contains implementation of Distribution Embeddings for various statistical distributions, including normal, Poisson, and multinomial distributions. The project provides tools for embedding statistical distributions into a latent space, allowing for efficient manipulation and generation of distributions.
+Generative Distribution Embeddings (GDEs) are a framework that lifts autoencoders to the space of distributions. In GDEs, an encoder acts on _sets_ of samples, and the decoder is replaced by a generator which aims to match the input distribution. This repository contains implementations of several different GDE architectures, code to benchmark GDEs on synthetic distributions, and demonstrations of GDEs for several large-scale modelling problems in computational biology.
 
 ## Setup and Configuration
 
@@ -229,7 +229,7 @@ For more details on the experiment management system, see the "Experiment Manage
 
 ### Output Structure
 
-The project uses a sophisticated hash-based output tracking system that organizes experiment outputs hierarchically:
+The project uses a hash-based output tracking system that organizes experiment outputs hierarchically:
 
 ```
 outputs/
@@ -302,7 +302,7 @@ This section details the main applications and experiments implemented in this p
 
 ### 3. Synthetic DNA
 
-*   **Description**: Generates and models distributions of synthetic DNA sequences, often with repeating patterns or motifs. Explores the use of convolutional encoders and HyenaDNA for sequence generation.
+*   **Description**: Generates and models distributions of synthetic DNA sequences with repeating patterns or motifs. 
 *   **Configuration**:
     *   Experiment (General): `config/experiment/synthetic_dna.yaml` (name: `synthetic_dna`)
     *   Experiment (Multinomial DNA): `config/experiment/dna_multinomial.yaml` (name: `dna_multinomial`)
@@ -318,7 +318,7 @@ This section details the main applications and experiments implemented in this p
 
 ### 4. Multivariate Normal (MVN) Distributions
 
-*   **Description**: Models sets of Multivariate Normal (MVN) distributions. This includes experiments with various complexities, dimensions, and systematic variations in model components (e.g., different loss functions like Sinkhorn, MMD, VAE-based).
+*   **Description**: Models sets of Multivariate Normal (MVN) distributions. This includes experiments with systematic variations in model components.
 *   **Configuration**:
     *   Main Experiment: `config/experiment/mvn.yaml` (name: `mvn`)
     *   Systematic Variations (examples):
@@ -364,7 +364,7 @@ This section details the main applications and experiments implemented in this p
 
 ### 6. Lineage Tracing (LT)
 
-*   **Description**: Analyzes clonal evolution in lineage-traced single-cell RNA-seq data (e.g., from Weinreb et al., 2020). Models distributions of cell states over time.
+*   **Description**: Learns representations of clonal populations in lineage-traced single-cell RNA-seq data (e.g., from Weinreb et al., 2020). Models distributions of cell states over time.
 *   **Configuration**:
     *   Experiment: `config/experiment/lineage_tracing.yaml` (name: `lineage`)
     *   Dataset: `config/dataset/lineage_tracing.yaml`
@@ -409,7 +409,7 @@ This section details the main applications and experiments implemented in this p
 
 ### 9. DNA Methylation
 
-*   **Description**: Models distributions of DNA methylation patterns from sequence data. Can be framed as a generative task or a classification task (predicting tissue type based on methylation patterns). Uses HyenaDNA for generation.
+*   **Description**: Models distributions of DNA methylation patterns from sequence data. Uses HyenaDNA for generation.
 *   **Configuration**:
     *   Generative: `config/experiment/methylation.yaml` (name: `methyl_exp`)
     *   Classification: `config/experiment/methylation_class.yaml` (name: `methyl_exp` but with classification encoder/loss)
@@ -442,7 +442,7 @@ This section details the main applications and experiments implemented in this p
 
 ### 11. Viral Spike Protein Distributions
 
-*   **Description**: Models distributions of viral spike protein sequences. Utilizes ESM (Evolutionary Scale Modeling) protein language models for embeddings and ProGen2 for sequence generation. Data often sourced from repositories like GISAID.
+*   **Description**: Models distributions of viral spike protein sequences. Utilizes ESM (Evolutionary Scale Modeling) architectures for embeddings and ProGen2 for sequence generation. Data sourced from GISAID.
 *   **Configuration**:
     *   Experiment: `config/experiment/virus.yaml` (name: `virus`)
     *   Dataset: `config/dataset/virus.yaml`
