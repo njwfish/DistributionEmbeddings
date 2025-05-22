@@ -13,8 +13,8 @@ defaults:
   - /training: timed
 
 # Experiment-specific parameters
-latent_dim: 32
-hidden_dim: 128
+latent_dim: 64
+hidden_dim: 256
 set_size: 64
 batch_size: 256
 lr: 2e-4

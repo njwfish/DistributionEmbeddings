@@ -7,4 +7,4 @@ eval_interval: 10000
 early_stopping: false
 patience: 5
 use_tqdm: false 
-max_time: 900
+max_time: 300
